@@ -1,0 +1,292 @@
+port: 7890
+socks-port: 7891
+mixed-port: 7890
+allow-lan: true
+mode: rule
+log-level: info
+ipv6: true
+tcp-concurrent: true
+
+external-controller: 127.0.0.1:9090
+
+geodata-mode: true
+geox-url:
+  geoip: https://testing
+  geosite: https://testing
+
+dns:
+  enable: true
+  listen: 0.0.0.0:1053
+  ipv6: true
+  enhanced-mode: fake-ip
+  fake-ip-range: 198.18.0.1/16
+  default-nameserver:
+    - 223.5.5.5
+    - 1.1.1.1
+  nameserver:
+    - https://223.5.5.5/dns-query
+    - https://1.1.1.1/dns-query
+  fallback:
+    - https://8.8.8.8/dns-query
+    - tls://1.0.0.1:853
+  fallback-filter:
+    geoip: true
+    geoip-code: CN
+    geosite:
+      - geolocation-!cn
+
+tun:
+  enable: true
+  stack: system
+  auto-route: true
+  auto-detect-interface: true
+  mtu: 9000
+
+profile:
+  store-selected: true
+  store-fake-ip: true
+
+# 将你的订阅链接填到 url 字段；如果你用本地 proxies 列表，也可以不写 providers，直接在下方 proxies: 手填节点
+proxy-providers:
+  all:
+    type: http
+    url: "YOUR_SUBSCRIPTION_URL"
+    interval: 3600
+    path: ./providers/all.yaml
+    health-check:
+      enable: true
+      interval: 300
+      url: http://www.gstatic.com/generate_204
+
+# 如需手填单个节点，可在这里补充（可留空）
+proxies: []
+
+# 便于复用的正则
+# 说明：
+# - exHigh: 排除高倍率
+# - rSG/rHK/…: 区域识别（大小写不敏感）
+# - rLowMul: 低倍率/下载/直连关键词匹配
+# - rAll: 匹配全部
+x-regex:
+  exHigh: "(?i)2X|3X|10X|HOME"
+  rSG: "(?i)新|新加坡|sg|singapore"
+  rHK: "(?i)港|香港|hk|hong ?kong"
+  rTW: "(?i)台|台湾|tw|taiwan"
+  rJP: "(?i)日|日本|jp|japan"
+  rKR: "(?i)韩|韩国|kr|korea"
+  rUS: "(?i)美|美国|us|united ?states|usa"
+  rLowMul: "(?i)0\\.\\d+X|直连|下载|download"
+  rAll: ".*"
+
+proxy-groups:
+  # 主开关
+  - name: Proxy
+    type: select
+    proxies:
+      - Auto
+      - Manual-Select
+      - Singapore
+      - Hong-Kong
+      - Japan
+      - United-States
+      - Taiwan
+      - Korea
+      - Download
+      - DIRECT
+
+  - name: Auto
+    type: url-test
+    use:
+      - all
+    filter: "^(?!.*({{exHigh}})).*$"
+    url: http://www.gstatic.com/generate_204
+    interval: 300
+
+  - name: Manual-Select
+    type: select
+    use:
+      - all
+    filter: "{{rAll}}"
+
+  # 地区分组（自动测速，且排除高倍率）
+  - name: Singapore
+    type: url-test
+    use: [all]
+    filter: "^(?=.*({{rSG}}))(?!.*({{exHigh}})).*$"
+    url: http://www.gstatic.com/generate_204
+    interval: 300
+
+  - name: Hong-Kong
+    type: url-test
+    use: [all]
+    filter: "^(?=.*({{rHK}}))(?!.*({{exHigh}})).*$"
+    url: http://www.gstatic.com/generate_204
+    interval: 300
+
+  - name: Taiwan
+    type: url-test
+    use: [all]
+    filter: "^(?=.*({{rTW}}))(?!.*({{exHigh}})).*$"
+    url: http://www.gstatic.com/generate_204
+    interval: 300
+
+  - name: Japan
+    type: url-test
+    use: [all]
+    filter: "^(?=.*({{rJP}}))(?!.*({{exHigh}})).*$"
+    url: http://www.gstatic.com/generate_204
+    interval: 300
+
+  - name: Korea
+    type: url-test
+    use: [all]
+    filter: "^(?=.*({{rKR}}))(?!.*({{exHigh}})).*$"
+    url: http://www.gstatic.com/generate_204
+    interval: 300
+
+  - name: United-States
+    type: select
+    use: [all]
+    filter: "^(?=.*({{rUS}}))(?!.*({{exHigh}})).*$"
+
+  # 下载/低倍率 自动测速（包含 0.*X / 直连 / 下载 / download，且排除高倍率）
+  - name: Download
+    type: url-test
+    use: [all]
+    filter: "^(?=.*({{rLowMul}}))(?!.*({{exHigh}})).*$"
+    url: http://www.gstatic.com/generate_204
+    interval: 300
+
+  # 专项策略（把默认项放在第一个）
+  - name: Netflix
+    type: select
+    proxies:
+      - Singapore
+      - Proxy
+      - Hong-Kong
+      - Japan
+      - United-States
+      - Manual-Select
+      - DIRECT
+
+  - name: DisneyPlus
+    type: select
+    proxies:
+      - Singapore
+      - Proxy
+      - Hong-Kong
+      - Japan
+      - United-States
+      - Manual-Select
+      - DIRECT
+
+  - name: YouTube
+    type: select
+    proxies:
+      - Hong-Kong
+      - Singapore
+      - Proxy
+      - Japan
+      - United-States
+      - Manual-Select
+      - DIRECT
+
+  - name: HBO
+    type: select
+    proxies:
+      - United-States
+      - Proxy
+      - Singapore
+      - Manual-Select
+      - DIRECT
+
+  - name: OpenAI
+    type: select
+    proxies:
+      - United-States
+      - Proxy
+      - Japan
+      - Singapore
+      - Manual-Select
+      - DIRECT
+
+  - name: Telegram
+    type: select
+    proxies:
+      - Proxy
+      - Singapore
+      - Hong-Kong
+      - Japan
+      - Manual-Select
+      - DIRECT
+
+  - name: Google
+    type: select
+    proxies:
+      - Proxy
+      - Hong-Kong
+      - United-States
+      - Singapore
+      - Manual-Select
+      - DIRECT
+
+  - name: Microsoft
+    type: select
+    proxies:
+      - DIRECT
+      - Proxy
+      - Manual-Select
+
+  - name: Apple
+    type: select
+    proxies:
+      - DIRECT
+      - Proxy
+      - Manual-Select
+
+  - name: Global
+    type: select
+    proxies:
+      - Proxy
+      - Auto
+      - Manual-Select
+      - DIRECT
+
+  - name: Domestic
+    type: select
+    proxies:
+      - DIRECT
+      - Proxy
+
+  - name: AdBlock
+    type: select
+    proxies:
+      - REJECT
+      - DIRECT
+
+rules:
+  # 广告与隐私
+  - GEOSITE,category-ads-all,AdBlock
+
+  # AI & 流媒体优先级（更具体的在前）
+  - GEOSITE,openai,OpenAI
+  - GEOSITE,netflix,Netflix
+  - GEOSITE,disney,DisneyPlus
+  - GEOSITE,youtube,YouTube
+  - GEOSITE,hbo,HBO
+
+  # 通讯/科技服务
+  - GEOSITE,telegram,Telegram
+  - GEOSITE,google,Google
+  - GEOSITE,microsoft,Microsoft
+  - GEOSITE,apple,Apple
+
+  # 其他视频/媒体流量 → Download（不覆盖已在上方命中的 Netflix/Disney/YT/HBO）
+  - GEOSITE,category-media,Download
+
+  # 中国大陆直连
+  - GEOIP,CN,Domestic
+  - GEOSITE,cn,Domestic
+
+  # 其余走 Global
+  - MATCH,Global
