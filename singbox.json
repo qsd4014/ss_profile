@@ -1,0 +1,1009 @@
+{
+  "log": {
+    "disabled": false,
+    "level": "info",
+    "timestamp": true
+  },
+  "dns": {
+    "servers": [
+      {
+        "tag": "dns-remote",
+        "address": "8.8.8.8",
+        "address_resolver": "dns-direct"
+      },
+      {
+        "tag": "dns-trick-direct",
+        "address": "https://sky.rethinkdns.com/",
+        "detour": "direct-out"
+      },
+      {
+        "tag": "dns-direct",
+        "address": "223.5.5.5",
+        "address_resolver": "dns-local",
+        "detour": "direct-out"
+      },
+      {
+        "tag": "dns-local",
+        "address": "local",
+        "detour": "direct-out"
+      },
+      {
+        "tag": "dns-block",
+        "address": "rcode://success"
+      }
+    ],
+    "rules": [
+      {
+        "domain_suffix": [
+          ".lan",
+          ".localdomain",
+          ".example",
+          ".invalid",
+          ".localhost",
+          ".test"
+        ],
+        "server": "dns-local"
+      },
+      {
+        "rule_set": "geosite-cn",
+        "server": "dns-direct"
+      },
+      {
+        "clash_mode": "direct",
+        "server": "dns-direct"
+      },
+      {
+        "clash_mode": "global",
+        "server": "dns-remote"
+      },
+      {
+        "rule_set": "geosite-geolocation-!cn",
+        "server": "dns-remote"
+      }
+    ],
+    "final": "dns-remote",
+    "independent_cache": true
+  },
+  "inbounds": [
+    {
+      "type": "tun",
+      "tag": "tun-in",
+      "mtu": 9000,
+      "inet4_address": "172.19.0.1/28",
+      "inet6_address": "fdfe:dcba:9876::1/126",
+      "auto_route": true,
+      "strict_route": true,
+      "stack": "system",
+      "endpoint_independent_nat": true,
+      "sniff": true,
+      "sniff_override_destination": true
+    },
+    {
+      "type": "mixed",
+      "tag": "mixed-in",
+      "listen": "127.0.0.1",
+      "listen_port": 2334,
+      "sniff": true,
+      "sniff_override_destination": true
+    }
+  ],
+  "outbounds": [
+    {
+      "tag": "Proxy",
+      "type": "selector",
+      "outbounds": [
+        "Auto",
+        "Manual-Select",
+        "Hong-Kong",
+        "Taiwan",
+        "Singapore",
+        "Japan",
+        "United-States",
+        "Korea",
+        "Download",
+        "direct-out"
+      ]
+    },
+    {
+      "tag": "Auto",
+      "type": "urltest",
+      "outbounds": [],
+      "filter": [
+        {
+          "action": "exclude",
+          "keywords": ["2X", "3X", "10X", "HOME"]
+        }
+      ],
+      "url": "http://www.gstatic.com/generate_204",
+      "interval": "5m",
+      "tolerance": 50
+    },
+    {
+      "tag": "Manual-Select",
+      "type": "selector",
+      "outbounds": []
+    },
+    {
+      "tag": "Hong-Kong",
+      "type": "urltest",
+      "outbounds": [],
+      "filter": [
+        {
+          "action": "include",
+          "keywords": ["香港", "HK", "Hong Kong"]
+        },
+        {
+          "action": "exclude",
+          "keywords": ["2X", "3X", "10X", "HOME"]
+        }
+      ],
+      "url": "http://www.gstatic.com/generate_204",
+      "interval": "5m",
+      "tolerance": 50
+    },
+    {
+      "tag": "Taiwan",
+      "type": "urltest",
+      "outbounds": [],
+      "filter": [
+        {
+          "action": "include",
+          "keywords": ["台", "新北", "彰化", "TW", "Taiwan"]
+        },
+        {
+          "action": "exclude",
+          "keywords": ["2X", "3X", "10X", "HOME"]
+        }
+      ],
+      "url": "http://www.gstatic.com/generate_204",
+      "interval": "5m",
+      "tolerance": 50
+    },
+    {
+      "tag": "Singapore",
+      "type": "urltest",
+      "outbounds": [],
+      "filter": [
+        {
+          "action": "include",
+          "keywords": ["新加坡", "坡", "狮城", "SG", "Singapore"]
+        },
+        {
+          "action": "exclude",
+          "keywords": ["2X", "3X", "10X", "HOME"]
+        }
+      ],
+      "url": "http://www.gstatic.com/generate_204",
+      "interval": "5m",
+      "tolerance": 50
+    },
+    {
+      "tag": "Japan",
+      "type": "urltest",
+      "outbounds": [],
+      "filter": [
+        {
+          "action": "include",
+          "keywords": ["日本", "川日", "东京", "大阪", "泉日", "埼玉", "沪日", "深日", "JP", "Japan"]
+        },
+        {
+          "action": "exclude",
+          "keywords": ["2X", "3X", "10X", "HOME"]
+        }
+      ],
+      "url": "http://www.gstatic.com/generate_204",
+      "interval": "5m",
+      "tolerance": 50
+    },
+    {
+      "tag": "United-States",
+      "type": "selector",
+      "outbounds": [],
+      "filter": [
+        {
+          "action": "include",
+          "keywords": ["美", "波特兰", "达拉斯", "俄勒冈", "凤凰城", "费利蒙", "硅谷", "拉斯维加斯", "洛杉矶", "圣何塞", "圣克拉拉", "西雅图", "芝加哥", "US", "United States"]
+        },
+        {
+          "action": "exclude",
+          "keywords": ["2X", "3X", "10X", "HOME"]
+        }
+      ]
+    },
+    {
+      "tag": "Korea",
+      "type": "urltest",
+      "outbounds": [],
+      "filter": [
+        {
+          "action": "include",
+          "keywords": ["KR", "Korea", "KOR", "首尔", "韩", "韓"]
+        },
+        {
+          "action": "exclude",
+          "keywords": ["2X", "3X", "10X", "HOME"]
+        }
+      ],
+      "url": "http://www.gstatic.com/generate_204",
+      "interval": "5m",
+      "tolerance": 50
+    },
+    {
+      "tag": "Download",
+      "type": "urltest",
+      "outbounds": [],
+      "filter": [
+        {
+          "action": "include",
+          "keywords": ["0.", "直连", "下载"]
+        },
+        {
+          "action": "exclude",
+          "keywords": ["2X", "3X", "10X", "HOME"]
+        }
+      ],
+      "url": "http://www.gstatic.com/generate_204",
+      "interval": "5m",
+      "tolerance": 50
+    },
+    {
+      "tag": "OpenAI",
+      "type": "selector",
+      "outbounds": [
+        "United-States",
+        "Singapore",
+        "Manual-Select",
+        "direct-out"
+      ]
+    },
+    {
+      "tag": "CleanIP",
+      "type": "selector",
+      "outbounds": [
+        "United-States",
+        "Singapore",
+        "Manual-Select"
+      ]
+    },
+    {
+      "tag": "YouTube",
+      "type": "selector",
+      "outbounds": [
+        "Hong-Kong",
+        "Singapore",
+        "Taiwan",
+        "Japan",
+        "United-States",
+        "Download",
+        "Manual-Select"
+      ]
+    },
+    {
+      "tag": "Netflix",
+      "type": "selector",
+      "outbounds": [
+        "Singapore",
+        "United-States",
+        "Hong-Kong",
+        "Taiwan",
+        "Manual-Select"
+      ]
+    },
+    {
+      "tag": "DisneyPlus",
+      "type": "selector",
+      "outbounds": [
+        "Singapore",
+        "United-States",
+        "Hong-Kong",
+        "Taiwan",
+        "Manual-Select"
+      ]
+    },
+    {
+      "tag": "HBO",
+      "type": "selector",
+      "outbounds": [
+        "United-States",
+        "Manual-Select"
+      ]
+    },
+    {
+      "tag": "PrimeVideo",
+      "type": "selector",
+      "outbounds": [
+        "United-States",
+        "Manual-Select"
+      ]
+    },
+    {
+      "tag": "AppleTV",
+      "type": "selector",
+      "outbounds": [
+        "direct-out",
+        "United-States",
+        "Manual-Select"
+      ]
+    },
+    {
+      "tag": "Telegram",
+      "type": "selector",
+      "outbounds": [
+        "Proxy",
+        "Singapore",
+        "Hong-Kong",
+        "Taiwan",
+        "Japan",
+        "United-States",
+        "Manual-Select",
+        "direct-out"
+      ]
+    },
+    {
+      "tag": "Google",
+      "type": "selector",
+      "outbounds": [
+        "United-States",
+        "Hong-Kong",
+        "Taiwan",
+        "Singapore",
+        "Japan",
+        "Korea",
+        "Manual-Select"
+      ]
+    },
+    {
+      "tag": "GoogleFCM",
+      "type": "selector",
+      "outbounds": [
+        "direct-out",
+        "United-States",
+        "Hong-Kong",
+        "Taiwan",
+        "Singapore",
+        "Japan",
+        "Korea",
+        "Manual-Select"
+      ]
+    },
+    {
+      "tag": "Bing",
+      "type": "selector",
+      "outbounds": [
+        "United-States",
+        "direct-out",
+        "Hong-Kong",
+        "Taiwan",
+        "Singapore",
+        "Japan",
+        "Korea",
+        "Manual-Select"
+      ]
+    },
+    {
+      "tag": "Microsoft",
+      "type": "selector",
+      "outbounds": [
+        "direct-out",
+        "United-States",
+        "Hong-Kong",
+        "Taiwan",
+        "Singapore",
+        "Japan",
+        "Korea",
+        "Manual-Select"
+      ]
+    },
+    {
+      "tag": "Apple",
+      "type": "selector",
+      "outbounds": [
+        "direct-out",
+        "United-States",
+        "Hong-Kong",
+        "Taiwan",
+        "Singapore",
+        "Japan",
+        "Korea",
+        "Manual-Select"
+      ]
+    },
+    {
+      "tag": "Gaming",
+      "type": "selector",
+      "outbounds": [
+        "direct-out",
+        "United-States",
+        "Hong-Kong",
+        "Taiwan",
+        "Singapore",
+        "Japan",
+        "Korea",
+        "Manual-Select"
+      ]
+    },
+    {
+      "tag": "Bilibili",
+      "type": "selector",
+      "outbounds": [
+        "direct-out",
+        "Taiwan",
+        "Hong-Kong",
+        "Manual-Select"
+      ]
+    },
+    {
+      "tag": "EMBY-Proxy",
+      "type": "selector",
+      "outbounds": [
+        "Proxy",
+        "Manual-Select",
+        "Download",
+        "direct-out"
+      ]
+    },
+    {
+      "tag": "EMBY-Direct",
+      "type": "selector",
+      "outbounds": [
+        "direct-out",
+        "Proxy",
+        "Manual-Select"
+      ]
+    },
+    {
+      "tag": "GlobalMedia",
+      "type": "selector",
+      "outbounds": [
+        "Proxy",
+        "Auto",
+        "Manual-Select",
+        "Hong-Kong",
+        "Taiwan",
+        "Singapore",
+        "Japan",
+        "United-States",
+        "Korea",
+        "Download",
+        "direct-out"
+      ]
+    },
+    {
+      "tag": "Final",
+      "type": "selector",
+      "outbounds": [
+        "Proxy",
+        "Manual-Select",
+        "Auto",
+        "Download",
+        "direct-out",
+        "Hong-Kong",
+        "Taiwan",
+        "Singapore",
+        "Japan",
+        "United-States",
+        "Korea"
+      ]
+    },
+    {
+      "tag": "direct-out",
+      "type": "direct"
+    },
+    {
+      "tag": "block-out",
+      "type": "block"
+    },
+    {
+      "tag": "dns-out",
+      "type": "dns"
+    }
+  ],
+  "route": {
+    "rules": [
+      {
+        "protocol": "dns",
+        "outbound": "dns-out"
+      },
+      {
+        "clash_mode": "direct",
+        "outbound": "direct-out"
+      },
+      {
+        "clash_mode": "global",
+        "outbound": "Proxy"
+      },
+      {
+        "network": "udp",
+        "port": 443,
+        "outbound": "block-out"
+      },
+      {
+        "rule_set": "geoip-cn",
+        "outbound": "direct-out"
+      },
+      {
+        "rule_set": "geosite-cn",
+        "outbound": "direct-out"
+      },
+      {
+        "rule_set": "LocalAreaNetwork",
+        "outbound": "direct-out"
+      },
+      {
+        "rule_set": "UnBan",
+        "outbound": "direct-out"
+      },
+      {
+        "rule_set": "BanAD",
+        "outbound": "block-out"
+      },
+      {
+        "rule_set": "BanProgramAD",
+        "outbound": "block-out"
+      },
+      {
+        "rule_set": "openAI",
+        "outbound": "OpenAI"
+      },
+      {
+        "rule_set": "OpenAI",
+        "outbound": "OpenAI"
+      },
+      {
+        "rule_set": "Claude",
+        "outbound": "OpenAI"
+      },
+      {
+        "rule_set": "CleanIP",
+        "outbound": "CleanIP"
+      },
+      {
+        "rule_set": "YouTube",
+        "outbound": "YouTube"
+      },
+      {
+        "rule_set": "Netflix",
+        "outbound": "Netflix"
+      },
+      {
+        "rule_set": "AmazonIp",
+        "outbound": "Netflix"
+      },
+      {
+        "rule_set": "Disney",
+        "outbound": "DisneyPlus"
+      },
+      {
+        "rule_set": "HBO",
+        "outbound": "HBO"
+      },
+      {
+        "rule_set": "HBOUSA",
+        "outbound": "HBO"
+      },
+      {
+        "rule_set": "AmazonPrimeVideo",
+        "outbound": "PrimeVideo"
+      },
+      {
+        "rule_set": "AppleTV",
+        "outbound": "AppleTV"
+      },
+      {
+        "rule_set": "Emby_proxy",
+        "outbound": "EMBY-Proxy"
+      },
+      {
+        "rule_set": "Emby_direct",
+        "outbound": "EMBY-Direct"
+      },
+      {
+        "rule_set": "BilibiliHMT",
+        "outbound": "Bilibili"
+      },
+      {
+        "rule_set": "Bilibili",
+        "outbound": "Bilibili"
+      },
+      {
+        "rule_set": "GoogleFCM",
+        "outbound": "GoogleFCM"
+      },
+      {
+        "rule_set": "Google",
+        "outbound": "Google"
+      },
+      {
+        "rule_set": "Bing",
+        "outbound": "Bing"
+      },
+      {
+        "rule_set": "OneDrive",
+        "outbound": "Microsoft"
+      },
+      {
+        "rule_set": "Microsoft",
+        "outbound": "Microsoft"
+      },
+      {
+        "rule_set": "Apple",
+        "outbound": "Apple"
+      },
+      {
+        "rule_set": "Telegram",
+        "outbound": "Telegram"
+      },
+      {
+        "rule_set": "Epic",
+        "outbound": "Gaming"
+      },
+      {
+        "rule_set": "Sony",
+        "outbound": "Gaming"
+      },
+      {
+        "rule_set": "Steam",
+        "outbound": "Gaming"
+      },
+      {
+        "rule_set": "Nintendo",
+        "outbound": "Gaming"
+      },
+      {
+        "rule_set": "Download",
+        "outbound": "Download"
+      },
+      {
+        "rule_set": "ChinaMedia",
+        "outbound": "direct-out"
+      },
+      {
+        "rule_set": "ProxyMedia",
+        "outbound": "GlobalMedia"
+      },
+      {
+        "rule_set": "ProxyGFWlist",
+        "outbound": "Proxy"
+      },
+      {
+        "rule_set": "GoogleCN",
+        "outbound": "direct-out"
+      },
+      {
+        "rule_set": "SteamCN",
+        "outbound": "direct-out"
+      },
+      {
+        "rule_set": "ChinaDomain",
+        "outbound": "direct-out"
+      },
+      {
+        "rule_set": "ChinaCompanyIp",
+        "outbound": "direct-out"
+      },
+      {
+        "rule_set": "Custom_direct",
+        "outbound": "direct-out"
+      }
+    ],
+    "rule_set": [
+      {
+        "tag": "geoip-cn",
+        "type": "remote",
+        "format": "binary",
+        "url": "https://raw.githubusercontent.com/SagerNet/sing-geoip/rule-set/geoip-cn.srs",
+        "download_detour": "direct-out"
+      },
+      {
+        "tag": "geosite-cn",
+        "type": "remote",
+        "format": "binary",
+        "url": "https://raw.githubusercontent.com/SagerNet/sing-geosite/rule-set/geosite-cn.srs",
+        "download_detour": "direct-out"
+      },
+      {
+        "tag": "geosite-geolocation-!cn",
+        "type": "remote",
+        "format": "binary",
+        "url": "https://raw.githubusercontent.com/SagerNet/sing-geosite/rule-set/geosite-geolocation-!cn.srs",
+        "download_detour": "Proxy"
+      },
+      {
+        "tag": "LocalAreaNetwork",
+        "type": "remote",
+        "format": "source",
+        "url": "https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/LocalAreaNetwork.list",
+        "download_detour": "direct-out"
+      },
+      {
+        "tag": "UnBan",
+        "type": "remote",
+        "format": "source",
+        "url": "https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/UnBan.list",
+        "download_detour": "direct-out"
+      },
+      {
+        "tag": "BanAD",
+        "type": "remote",
+        "format": "source",
+        "url": "https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/BanAD.list",
+        "download_detour": "direct-out"
+      },
+      {
+        "tag": "BanProgramAD",
+        "type": "remote",
+        "format": "source",
+        "url": "https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/BanProgramAD.list",
+        "download_detour": "direct-out"
+      },
+      {
+        "tag": "openAI",
+        "type": "remote",
+        "format": "source",
+        "url": "https://raw.githubusercontent.com/qsd4014/ss_profile/main/Rules/openAI.list",
+        "download_detour": "Proxy"
+      },
+      {
+        "tag": "OpenAI",
+        "type": "remote",
+        "format": "source",
+        "url": "https://raw.githubusercontent.com/blackmatrix7/ios_rule_script/master/rule/Clash/OpenAI/OpenAI.list",
+        "download_detour": "Proxy"
+      },
+      {
+        "tag": "Claude",
+        "type": "remote",
+        "format": "source",
+        "url": "https://raw.githubusercontent.com/blackmatrix7/ios_rule_script/master/rule/Clash/Claude/Claude.list",
+        "download_detour": "Proxy"
+      },
+      {
+        "tag": "CleanIP",
+        "type": "remote",
+        "format": "source",
+        "url": "https://raw.githubusercontent.com/qsd4014/ss_profile/refs/heads/main/Rules/CleanIP.list",
+        "download_detour": "Proxy"
+      },
+      {
+        "tag": "YouTube",
+        "type": "remote",
+        "format": "source",
+        "url": "https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/Ruleset/YouTube.list",
+        "download_detour": "Proxy"
+      },
+      {
+        "tag": "Netflix",
+        "type": "remote",
+        "format": "source",
+        "url": "https://raw.githubusercontent.com/blackmatrix7/ios_rule_script/master/rule/Clash/Netflix/Netflix.list",
+        "download_detour": "Proxy"
+      },
+      {
+        "tag": "AmazonIp",
+        "type": "remote",
+        "format": "source",
+        "url": "https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/Ruleset/AmazonIp.list",
+        "download_detour": "Proxy"
+      },
+      {
+        "tag": "Disney",
+        "type": "remote",
+        "format": "source",
+        "url": "https://raw.githubusercontent.com/blackmatrix7/ios_rule_script/master/rule/Clash/Disney/Disney.list",
+        "download_detour": "Proxy"
+      },
+      {
+        "tag": "HBO",
+        "type": "remote",
+        "format": "source",
+        "url": "https://raw.githubusercontent.com/blackmatrix7/ios_rule_script/master/rule/Clash/HBO/HBO.list",
+        "download_detour": "Proxy"
+      },
+      {
+        "tag": "HBOUSA",
+        "type": "remote",
+        "format": "source",
+        "url": "https://raw.githubusercontent.com/blackmatrix7/ios_rule_script/master/rule/Clash/HBOUSA/HBOUSA.list",
+        "download_detour": "Proxy"
+      },
+      {
+        "tag": "AmazonPrimeVideo",
+        "type": "remote",
+        "format": "source",
+        "url": "https://raw.githubusercontent.com/blackmatrix7/ios_rule_script/master/rule/Clash/AmazonPrimeVideo/AmazonPrimeVideo.list",
+        "download_detour": "Proxy"
+      },
+      {
+        "tag": "AppleTV",
+        "type": "remote",
+        "format": "source",
+        "url": "https://raw.githubusercontent.com/blackmatrix7/ios_rule_script/master/rule/Clash/AppleTV/AppleTV.list",
+        "download_detour": "Proxy"
+      },
+      {
+        "tag": "Emby_proxy",
+        "type": "remote",
+        "format": "source",
+        "url": "https://raw.githubusercontent.com/qsd4014/ss_profile/main/Rules/Emby_proxy.list",
+        "download_detour": "Proxy"
+      },
+      {
+        "tag": "Emby_direct",
+        "type": "remote",
+        "format": "source",
+        "url": "https://raw.githubusercontent.com/qsd4014/ss_profile/main/Rules/Emby_direct.list",
+        "download_detour": "direct-out"
+      },
+      {
+        "tag": "BilibiliHMT",
+        "type": "remote",
+        "format": "source",
+        "url": "https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/Ruleset/BilibiliHMT.list",
+        "download_detour": "direct-out"
+      },
+      {
+        "tag": "Bilibili",
+        "type": "remote",
+        "format": "source",
+        "url": "https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/Ruleset/Bilibili.list",
+        "download_detour": "direct-out"
+      },
+      {
+        "tag": "GoogleFCM",
+        "type": "remote",
+        "format": "source",
+        "url": "https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/Ruleset/GoogleFCM.list",
+        "download_detour": "Proxy"
+      },
+      {
+        "tag": "Google",
+        "type": "remote",
+        "format": "source",
+        "url": "https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/Ruleset/Google.list",
+        "download_detour": "Proxy"
+      },
+      {
+        "tag": "Bing",
+        "type": "remote",
+        "format": "source",
+        "url": "https://raw.githubusercontent.com/blackmatrix7/ios_rule_script/master/rule/Clash/Bing/Bing.list",
+        "download_detour": "Proxy"
+      },
+      {
+        "tag": "OneDrive",
+        "type": "remote",
+        "format": "source",
+        "url": "https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/OneDrive.list",
+        "download_detour": "direct-out"
+      },
+      {
+        "tag": "Microsoft",
+        "type": "remote",
+        "format": "source",
+        "url": "https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/Microsoft.list",
+        "download_detour": "direct-out"
+      },
+      {
+        "tag": "Apple",
+        "type": "remote",
+        "format": "source",
+        "url": "https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/Apple.list",
+        "download_detour": "direct-out"
+      },
+      {
+        "tag": "Telegram",
+        "type": "remote",
+        "format": "source",
+        "url": "https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/Telegram.list",
+        "download_detour": "Proxy"
+      },
+      {
+        "tag": "Epic",
+        "type": "remote",
+        "format": "source",
+        "url": "https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/Ruleset/Epic.list",
+        "download_detour": "direct-out"
+      },
+      {
+        "tag": "Sony",
+        "type": "remote",
+        "format": "source",
+        "url": "https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/Ruleset/Sony.list",
+        "download_detour": "direct-out"
+      },
+      {
+        "tag": "Steam",
+        "type": "remote",
+        "format": "source",
+        "url": "https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/Ruleset/Steam.list",
+        "download_detour": "direct-out"
+      },
+      {
+        "tag": "Nintendo",
+        "type": "remote",
+        "format": "source",
+        "url": "https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/Ruleset/Nintendo.list",
+        "download_detour": "direct-out"
+      },
+      {
+        "tag": "Download",
+        "type": "remote",
+        "format": "source",
+        "url": "https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/Download.list",
+        "download_detour": "direct-out"
+      },
+      {
+        "tag": "ChinaMedia",
+        "type": "remote",
+        "format": "source",
+        "url": "https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/ChinaMedia.list",
+        "download_detour": "direct-out"
+      },
+      {
+        "tag": "ProxyMedia",
+        "type": "remote",
+        "format": "source",
+        "url": "https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/ProxyMedia.list",
+        "download_detour": "Proxy"
+      },
+      {
+        "tag": "ProxyGFWlist",
+        "type": "remote",
+        "format": "source",
+        "url": "https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/ProxyGFWlist.list",
+        "download_detour": "Proxy"
+      },
+      {
+        "tag": "GoogleCN",
+        "type": "remote",
+        "format": "source",
+        "url": "https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/GoogleCN.list",
+        "download_detour": "direct-out"
+      },
+      {
+        "tag": "SteamCN",
+        "type": "remote",
+        "format": "source",
+        "url": "https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/Ruleset/SteamCN.list",
+        "download_detour": "direct-out"
+      },
+      {
+        "tag": "ChinaDomain",
+        "type": "remote",
+        "format": "source",
+        "url": "https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/ChinaDomain.list",
+        "download_detour": "direct-out"
+      },
+      {
+        "tag": "ChinaCompanyIp",
+        "type": "remote",
+        "format": "source",
+        "url": "https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/ChinaCompanyIp.list",
+        "download_detour": "direct-out"
+      },
+      {
+        "tag": "Custom_direct",
+        "type": "remote",
+        "format": "source",
+        "url": "https://raw.githubusercontent.com/qsd4014/ss_profile/main/Rules/Custom_direct.list",
+        "download_detour": "direct-out"
+      }
+    ],
+    "final": "Final",
+    "auto_detect_interface": true
+  },
+  "experimental": {
+    "cache_file": {
+      "enabled": true,
+      "store_fakeip": false
+    },
+    "clash_api": {
+      "external_controller": "127.0.0.1:9090",
+      "external_ui": "ui",
+      "secret": "",
+      "external_ui_download_url": "https://mirror.ghproxy.com/https://github.com/MetaCubeX/Yacd-meta/archive/gh-pages.zip",
+      "external_ui_download_detour": "direct-out",
+      "default_mode": "rule"
+    }
+  }
+}
