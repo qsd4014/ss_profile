@@ -1,12 +1,20 @@
-// Sub-Store Override Script
+// Sub-Store Override Script - Fixed Version
 // 基于mihomo.yaml配置转换的Sub-Store脚本
 // 保持原有分流逻辑，支持参数化配置
 // 更新时间: 2025-09-29
-// 修复版本: 节点选择和过滤规则已优化，同时匹配大小写x
+// 修复版本: 解决输出空白问题，修复节点过滤和输出格式
 
 function operator(proxies = [], targetPlatform, context) {
+  // 检查输入
+  if (!Array.isArray(proxies) || proxies.length === 0) {
+    console.log('[Sub-Store Script] No proxies provided');
+    return { proxies: [] };
+  }
+
+  console.log(`[Sub-Store Script] Processing ${proxies.length} proxies`);
+  
   // 获取参数配置
-  const params = getParams(context.source.url);
+  const params = getParams(context?.source?.url || '');
   const {
     loadbalance = false,
     landing = false,
@@ -14,6 +22,8 @@ function operator(proxies = [], targetPlatform, context) {
     full = false,
     keepalive = false
   } = params;
+
+  console.log('[Sub-Store Script] Params:', params);
 
   // 节点过滤函数
   const filters = {
@@ -76,8 +86,120 @@ function operator(proxies = [], targetPlatform, context) {
     }
   };
 
+  // 应用过滤器并记录结果
+  const filteredNodes = {
+    lowRate: proxies.filter(p => filters.lowRate(p.name)),
+    public: proxies.filter(p => filters.public(p.name)),
+    selfBuilt: proxies.filter(p => filters.selfBuilt(p.name)),
+    hongkong: proxies.filter(p => filters.hongkong(p.name)),
+    japan: proxies.filter(p => filters.japan(p.name)),
+    usa: proxies.filter(p => filters.usa(p.name)),
+    taiwan: proxies.filter(p => filters.taiwan(p.name)),
+    singapore: proxies.filter(p => filters.singapore(p.name)),
+    korea: proxies.filter(p => filters.korea(p.name)),
+    auto: proxies.filter(p => filters.auto(p.name)),
+    streaming: proxies.filter(p => filters.streaming(p.name))
+  };
+
+  // 输出过滤统计
+  console.log('[Sub-Store Script] Filter results:');
+  Object.keys(filteredNodes).forEach(key => {
+    console.log(`  ${key}: ${filteredNodes[key].length} nodes`);
+  });
+
+  // 创建策略组函数
+  const createProxyGroup = (name, type, nodeList, options = {}) => {
+    const group = {
+      name,
+      type,
+      proxies: nodeList.length > 0 ? nodeList.map(p => p.name) : ["DIRECT"]
+    };
+    
+    if (options.url) group.url = options.url;
+    if (options.interval) group.interval = options.interval;
+    if (options.tolerance) group.tolerance = options.tolerance;
+    if (options.lazy !== undefined) group.lazy = options.lazy;
+    if (options.strategy) group.strategy = options.strategy;
+    
+    return group;
+  };
+
+  // 特殊节点组（首先创建，因为其他组会引用）
+  const specialGroups = [
+    // 0.X 组 - 低倍率节点
+    createProxyGroup("0.X", "select", filteredNodes.lowRate),
+    
+    // 地区节点组
+    createProxyGroup("🇭🇰 香港节点", "url-test", filteredNodes.hongkong, {
+      url: "http://www.gstatic.com/generate_204",
+      interval: 300,
+      tolerance: 50
+    }),
+    
+    createProxyGroup("🇯🇵 日本节点", "url-test", filteredNodes.japan, {
+      url: "http://www.gstatic.com/generate_204",
+      interval: 300,
+      tolerance: 50
+    }),
+    
+    createProxyGroup("🇺🇲 美国节点", "select", filteredNodes.usa, {
+      url: "http://www.gstatic.com/generate_204",
+      interval: 300,
+      tolerance: 150
+    }),
+    
+    createProxyGroup("🇨🇳 台湾节点", "select", filteredNodes.taiwan, {
+      url: "http://www.gstatic.com/generate_204",
+      interval: 300,
+      tolerance: 50
+    }),
+    
+    createProxyGroup("🇸🇬 狮城节点", "select", filteredNodes.singapore, {
+      url: "http://www.gstatic.com/generate_204",
+      interval: 300,
+      tolerance: 50
+    }),
+    
+    createProxyGroup("🇰🇷 韩国节点", "url-test", filteredNodes.korea, {
+      url: "http://www.gstatic.com/generate_204",
+      interval: 300,
+      tolerance: 50
+    }),
+    
+    // 公共服务节点
+    createProxyGroup("🆓 公益", "select", filteredNodes.public, {
+      url: "http://www.gstatic.com/generate_204",
+      interval: 300,
+      tolerance: 50
+    }),
+    
+    createProxyGroup("🚁 自建节点", "select", filteredNodes.selfBuilt),
+    
+    // 自动策略
+    createProxyGroup("♻️ 自动选择", "url-test", filteredNodes.auto, {
+      url: "http://www.gstatic.com/generate_204",
+      interval: 300,
+      tolerance: 50
+    }),
+    
+    createProxyGroup("🔯 故障转移", "fallback", filteredNodes.auto, {
+      url: "http://www.gstatic.com/generate_204",
+      interval: 300,
+      tolerance: 50,
+      lazy: true
+    }),
+    
+    createProxyGroup("🔮 负载均衡", "load-balance", 
+      filteredNodes.selfBuilt.length > 0 ? filteredNodes.selfBuilt : filteredNodes.auto, {
+      url: "http://www.gstatic.com/generate_204",
+      interval: 300,
+      tolerance: 50,
+      strategy: "round-robin"
+    })
+  ];
+
   // 基础策略组配置
-  const proxyGroups = [
+  const basicGroups = [
     {
       name: "🚀 节点选择",
       type: "select",
@@ -171,7 +293,7 @@ function operator(proxies = [], targetPlatform, context) {
       name: "🎥 奈飞视频",
       type: "select",
       proxies: ["✈️ 手动选择"].concat(
-        proxies.filter(p => filters.streaming(p.name)).map(p => p.name)
+        filteredNodes.streaming.map(p => p.name)
       )
     },
     
@@ -182,9 +304,7 @@ function operator(proxies = [], targetPlatform, context) {
         "✈️ 手动选择",
         "🛩️ 手动选择备用",
         "🚁 自建节点"
-      ].concat(
-        proxies.filter(p => filters.streaming(p.name)).map(p => p.name)
-      )
+      ].concat(filteredNodes.streaming.map(p => p.name))
     },
     
     // EMBY服务
@@ -460,492 +580,390 @@ function operator(proxies = [], targetPlatform, context) {
     }
   ];
 
-  // 添加特殊节点组
-  const specialGroups = [
-    // 0.X 组 - 低倍率节点
-    {
-      name: "0.X",
-      type: "select",
-      proxies: proxies.filter(p => filters.lowRate(p.name)).map(p => p.name)
-    },
-    
-    // 地区节点组
-    {
-      name: "🇭🇰 香港节点",
-      type: "url-test",
-      proxies: proxies.filter(p => filters.hongkong(p.name)).map(p => p.name),
-      url: "http://www.gstatic.com/generate_204",
-      interval: 300,
-      tolerance: 50
-    },
-    
-    {
-      name: "🇯🇵 日本节点",
-      type: "url-test",
-      proxies: proxies.filter(p => filters.japan(p.name)).map(p => p.name),
-      url: "http://www.gstatic.com/generate_204",
-      interval: 300,
-      tolerance: 50
-    },
-    
-    {
-      name: "🇺🇲 美国节点",
-      type: "select",
-      proxies: proxies.filter(p => filters.usa(p.name)).map(p => p.name),
-      url: "http://www.gstatic.com/generate_204",
-      interval: 300,
-      tolerance: 150
-    },
-    
-    {
-      name: "🇨🇳 台湾节点",
-      type: "select",
-      proxies: proxies.filter(p => filters.taiwan(p.name)).map(p => p.name),
-      url: "http://www.gstatic.com/generate_204",
-      interval: 300,
-      tolerance: 50
-    },
-    
-    {
-      name: "🇸🇬 狮城节点",
-      type: "select",
-      proxies: proxies.filter(p => filters.singapore(p.name)).map(p => p.name),
-      url: "http://www.gstatic.com/generate_204",
-      interval: 300,
-      tolerance: 50
-    },
-    
-    {
-      name: "🇰🇷 韩国节点",
-      type: "url-test",
-      proxies: proxies.filter(p => filters.korea(p.name)).map(p => p.name),
-      url: "http://www.gstatic.com/generate_204",
-      interval: 300,
-      tolerance: 50
-    },
-    
-    // 公共服务节点
-    {
-      name: "🆓 公益",
-      type: "select",
-      proxies: proxies.filter(p => filters.public(p.name)).map(p => p.name),
-      url: "http://www.gstatic.com/generate_204",
-      interval: 300,
-      tolerance: 50
-    },
-    
-    {
-      name: "🚁 自建节点",
-      type: "select",
-      proxies: proxies.filter(p => filters.selfBuilt(p.name)).map(p => p.name)
-    },
-    
-    // 自动策略
-    {
-      name: "♻️ 自动选择",
-      type: "url-test",
-      proxies: proxies.filter(p => filters.auto(p.name)).map(p => p.name),
-      url: "http://www.gstatic.com/generate_204",
-      interval: 300,
-      tolerance: 50
-    },
-    
-    {
-      name: "🔯 故障转移",
-      type: "fallback",
-      proxies: proxies.filter(p => filters.auto(p.name)).map(p => p.name),
-      url: "http://www.gstatic.com/generate_204",
-      interval: 300,
-      tolerance: 50,
-      lazy: true
-    },
-    
-    {
-      name: "🔮 负载均衡",
-      type: "load-balance",
-      proxies: proxies.filter(p => filters.selfBuilt(p.name)).map(p => p.name),
-      url: "http://www.gstatic.com/generate_204",
-      interval: 300,
-      tolerance: 50,
-      strategy: "round-robin"
-    }
-  ];
-
-  // 过滤空的策略组
-  const validSpecialGroups = specialGroups.filter(group => 
-    group.proxies && group.proxies.length > 0
-  );
-
   // 合并所有策略组
-  const allProxyGroups = proxyGroups.concat(validSpecialGroups);
+  const allProxyGroups = specialGroups.concat(basicGroups);
 
-  // 生成规则
-  const rules = [
-    // 局域网直连
-    "RULE-SET,LocalAreaNetwork,🎯 全球直连",
-    "RULE-SET,UnBan,🎯 全球直连",
-    
-    // 广告拦截
-    "RULE-SET,BanAD,🛑 广告拦截",
-    "RULE-SET,BanProgramAD,🍃 应用净化",
-    
-    // AI服务
-    "RULE-SET,openAI,🌍 OpenAI",
-    "RULE-SET,OpenAI,🌍 OpenAI",
-    "RULE-SET,Claude,🌍 OpenAI",
-    "RULE-SET,CleanIP,🌍 CleanIP",
-    
-    // 流媒体服务
-    "RULE-SET,YouTube,📹 油管视频",
-    "RULE-SET,Netflix,🎥 奈飞视频",
-    "RULE-SET,AmazonIp,🎥 奈飞视频",
-    "RULE-SET,Disney,🐹 DisneyPlus",
-    "RULE-SET,HBO,🎦 HBO",
-    "RULE-SET,HBOUSA,🎦 HBO",
-    "RULE-SET,AmazonPrimeVideo,🎦 PrimeVideo",
-    "RULE-SET,AppleTV,🍎 AppleTV",
-    
-    // 谷歌服务
-    "RULE-SET,GoogleFCM,📢 谷歌FCM",
-    "RULE-SET,Google,📢 谷歌",
-    
-    // 国内谷歌服务直连
-    "RULE-SET,GoogleCN,🎯 全球直连",
-    "RULE-SET,SteamCN,🎯 全球直连",
-    
-    // 微软服务
-    "RULE-SET,Bing,Ⓜ️ Bing",
-    "RULE-SET,OneDrive,Ⓜ️ 微软云盘",
-    "RULE-SET,Microsoft,Ⓜ️ 微软服务",
-    
-    // 苹果服务
-    "RULE-SET,Apple,🍎 苹果服务",
-    
-    // 电报
-    "RULE-SET,Telegram,📲 电报消息",
-    
-    // 游戏平台
-    "RULE-SET,Epic,🎮 游戏平台",
-    "RULE-SET,Sony,🎮 游戏平台",
-    "RULE-SET,Steam,🎮 游戏平台",
-    "RULE-SET,Nintendo,🎮 游戏平台",
-    
-    // EMBY服务
-    "RULE-SET,Emby_proxy,🎬 EMBY_proxy",
-    "RULE-SET,Emby_direct,🎬 EMBY_direct",
-    
-    // 哔哩哔哩
-    "RULE-SET,BilibiliHMT,📺 哔哩哔哩",
-    "RULE-SET,Bilibili,📺 哔哩哔哩",
-    
-    // 国内外媒体
-    "RULE-SET,ChinaMedia,🌏 国内媒体",
-    "RULE-SET,ProxyMedia,🌍 国外媒体",
-    
-    // 代理规则
-    "RULE-SET,ProxyGFWlist,🚀 节点选择",
-    
-    // 直连规则
-    "RULE-SET,ChinaDomain,🎯 全球直连",
-    "RULE-SET,ChinaCompanyIp,🎯 全球直连",
-    "RULE-SET,Download,🎯 全球直连",
-    "RULE-SET,Custom_direct,🎯 全球直连",
-    
-    // 地理位置规则
-    "GEOIP,CN,🎯 全球直连",
-    "MATCH,🐟 漏网之鱼"
-  ];
+  console.log(`[Sub-Store Script] Generated ${allProxyGroups.length} proxy groups`);
 
-  // 规则集配置
-  const ruleProviders = {
-    LocalAreaNetwork: {
-      type: "http",
-      behavior: "classical",
-      url: "https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/LocalAreaNetwork.list",
-      path: "./ruleset/LocalAreaNetwork.list",
-      interval: 86400
-    },
-    UnBan: {
-      type: "http",
-      behavior: "classical",
-      url: "https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/UnBan.list",
-      path: "./ruleset/UnBan.list",
-      interval: 86400
-    },
-    BanAD: {
-      type: "http",
-      behavior: "classical",
-      url: "https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/BanAD.list",
-      path: "./ruleset/BanAD.list",
-      interval: 86400
-    },
-    BanProgramAD: {
-      type: "http",
-      behavior: "classical",
-      url: "https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/BanProgramAD.list",
-      path: "./ruleset/BanProgramAD.list",
-      interval: 86400
-    },
-    openAI: {
-      type: "http",
-      behavior: "classical",
-      url: "https://raw.githubusercontent.com/qsd4014/ss_profile/main/Rules/openAI.list",
-      path: "./ruleset/openAI.list",
-      interval: 86400
-    },
-    OpenAI: {
-      type: "http",
-      behavior: "classical",
-      url: "https://raw.githubusercontent.com/blackmatrix7/ios_rule_script/master/rule/Clash/OpenAI/OpenAI.list",
-      path: "./ruleset/OpenAI.list",
-      interval: 86400
-    },
-    Claude: {
-      type: "http",
-      behavior: "classical",
-      url: "https://raw.githubusercontent.com/blackmatrix7/ios_rule_script/master/rule/Clash/Claude/Claude.list",
-      path: "./ruleset/Claude.list",
-      interval: 86400
-    },
-    CleanIP: {
-      type: "http",
-      behavior: "classical",
-      url: "https://raw.githubusercontent.com/qsd4014/ss_profile/refs/heads/main/Rules/CleanIP.list",
-      path: "./ruleset/CleanIP.list",
-      interval: 86400
-    },
-    YouTube: {
-      type: "http",
-      behavior: "classical",
-      url: "https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/Ruleset/YouTube.list",
-      path: "./ruleset/YouTube.list",
-      interval: 86400
-    },
-    Netflix: {
-      type: "http",
-      behavior: "classical",
-      url: "https://raw.githubusercontent.com/blackmatrix7/ios_rule_script/master/rule/Clash/Netflix/Netflix.list",
-      path: "./ruleset/Netflix.list",
-      interval: 86400
-    },
-    AmazonIp: {
-      type: "http",
-      behavior: "classical",
-      url: "https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/Ruleset/AmazonIp.list",
-      path: "./ruleset/AmazonIp.list",
-      interval: 86400
-    },
-    Disney: {
-      type: "http",
-      behavior: "classical",
-      url: "https://raw.githubusercontent.com/blackmatrix7/ios_rule_script/master/rule/Clash/Disney/Disney.list",
-      path: "./ruleset/Disney.list",
-      interval: 86400
-    },
-    HBO: {
-      type: "http",
-      behavior: "classical",
-      url: "https://raw.githubusercontent.com/blackmatrix7/ios_rule_script/master/rule/Clash/HBO/HBO.list",
-      path: "./ruleset/HBO.list",
-      interval: 86400
-    },
-    HBOUSA: {
-      type: "http",
-      behavior: "classical",
-      url: "https://raw.githubusercontent.com/blackmatrix7/ios_rule_script/master/rule/Clash/HBOUSA/HBOUSA.list",
-      path: "./ruleset/HBOUSA.list",
-      interval: 86400
-    },
-    AmazonPrimeVideo: {
-      type: "http",
-      behavior: "classical",
-      url: "https://raw.githubusercontent.com/blackmatrix7/ios_rule_script/master/rule/Clash/AmazonPrimeVideo/AmazonPrimeVideo.list",
-      path: "./ruleset/AmazonPrimeVideo.list",
-      interval: 86400
-    },
-    AppleTV: {
-      type: "http",
-      behavior: "classical",
-      url: "https://raw.githubusercontent.com/blackmatrix7/ios_rule_script/master/rule/Clash/AppleTV/AppleTV.list",
-      path: "./ruleset/AppleTV.list",
-      interval: 86400
-    },
-    GoogleFCM: {
-      type: "http",
-      behavior: "classical",
-      url: "https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/Ruleset/GoogleFCM.list",
-      path: "./ruleset/GoogleFCM.list",
-      interval: 86400
-    },
-    Google: {
-      type: "http",
-      behavior: "classical",
-      url: "https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/Ruleset/Google.list",
-      path: "./ruleset/Google.list",
-      interval: 86400
-    },
-    GoogleCN: {
-      type: "http",
-      behavior: "classical",
-      url: "https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/GoogleCN.list",
-      path: "./ruleset/GoogleCN.list",
-      interval: 86400
-    },
-    SteamCN: {
-      type: "http",
-      behavior: "classical",
-      url: "https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/Ruleset/SteamCN.list",
-      path: "./ruleset/SteamCN.list",
-      interval: 86400
-    },
-    Bing: {
-      type: "http",
-      behavior: "classical",
-      url: "https://raw.githubusercontent.com/blackmatrix7/ios_rule_script/master/rule/Clash/Bing/Bing.list",
-      path: "./ruleset/Bing.list",
-      interval: 86400
-    },
-    OneDrive: {
-      type: "http",
-      behavior: "classical",
-      url: "https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/OneDrive.list",
-      path: "./ruleset/OneDrive.list",
-      interval: 86400
-    },
-    Microsoft: {
-      type: "http",
-      behavior: "classical",
-      url: "https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/Microsoft.list",
-      path: "./ruleset/Microsoft.list",
-      interval: 86400
-    },
-    Apple: {
-      type: "http",
-      behavior: "classical",
-      url: "https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/Apple.list",
-      path: "./ruleset/Apple.list",
-      interval: 86400
-    },
-    Telegram: {
-      type: "http",
-      behavior: "classical",
-      url: "https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/Telegram.list",
-      path: "./ruleset/Telegram.list",
-      interval: 86400
-    },
-    Epic: {
-      type: "http",
-      behavior: "classical",
-      url: "https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/Ruleset/Epic.list",
-      path: "./ruleset/Epic.list",
-      interval: 86400
-    },
-    Sony: {
-      type: "http",
-      behavior: "classical",
-      url: "https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/Ruleset/Sony.list",
-      path: "./ruleset/Sony.list",
-      interval: 86400
-    },
-    Steam: {
-      type: "http",
-      behavior: "classical",
-      url: "https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/Ruleset/Steam.list",
-      path: "./ruleset/Steam.list",
-      interval: 86400
-    },
-    Nintendo: {
-      type: "http",
-      behavior: "classical",
-      url: "https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/Ruleset/Nintendo.list",
-      path: "./ruleset/Nintendo.list",
-      interval: 86400
-    },
-    Emby_proxy: {
-      type: "http",
-      behavior: "classical",
-      url: "https://raw.githubusercontent.com/qsd4014/ss_profile/main/Rules/Emby_proxy.list",
-      path: "./ruleset/Emby_proxy.list",
-      interval: 86400
-    },
-    Emby_direct: {
-      type: "http",
-      behavior: "classical",
-      url: "https://raw.githubusercontent.com/qsd4014/ss_profile/main/Rules/Emby_direct.list",
-      path: "./ruleset/Emby_direct.list",
-      interval: 86400
-    },
-    BilibiliHMT: {
-      type: "http",
-      behavior: "classical",
-      url: "https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/Ruleset/BilibiliHMT.list",
-      path: "./ruleset/BilibiliHMT.list",
-      interval: 86400
-    },
-    Bilibili: {
-      type: "http",
-      behavior: "classical",
-      url: "https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/Ruleset/Bilibili.list",
-      path: "./ruleset/Bilibili.list",
-      interval: 86400
-    },
-    ChinaMedia: {
-      type: "http",
-      behavior: "classical",
-      url: "https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/ChinaMedia.list",
-      path: "./ruleset/ChinaMedia.list",
-      interval: 86400
-    },
-    ProxyMedia: {
-      type: "http",
-      behavior: "classical",
-      url: "https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/ProxyMedia.list",
-      path: "./ruleset/ProxyMedia.list",
-      interval: 86400
-    },
-    ProxyGFWlist: {
-      type: "http",
-      behavior: "classical",
-      url: "https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/ProxyGFWlist.list",
-      path: "./ruleset/ProxyGFWlist.list",
-      interval: 86400
-    },
-    ChinaDomain: {
-      type: "http",
-      behavior: "classical",
-      url: "https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/ChinaDomain.list",
-      path: "./ruleset/ChinaDomain.list",
-      interval: 86400
-    },
-    ChinaCompanyIp: {
-      type: "http",
-      behavior: "classical",
-      url: "https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/ChinaCompanyIp.list",
-      path: "./ruleset/ChinaCompanyIp.list",
-      interval: 86400
-    },
-    Download: {
-      type: "http",
-      behavior: "classical",
-      url: "https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/Download.list",
-      path: "./ruleset/Download.list",
-      interval: 86400
-    },
-    Custom_direct: {
-      type: "http",
-      behavior: "classical",
-      url: "https://raw.githubusercontent.com/qsd4014/ss_profile/main/Rules/Custom_direct.list",
-      path: "./ruleset/Custom_direct.list",
-      interval: 86400
-    }
-  };
+  // 生成规则（仅在完整模式下）
+  let rules = [];
+  let ruleProviders = {};
+  
+  if (full) {
+    rules = [
+      // 局域网直连
+      "RULE-SET,LocalAreaNetwork,🎯 全球直连",
+      "RULE-SET,UnBan,🎯 全球直连",
+      
+      // 广告拦截
+      "RULE-SET,BanAD,🛑 广告拦截",
+      "RULE-SET,BanProgramAD,🍃 应用净化",
+      
+      // AI服务
+      "RULE-SET,openAI,🌍 OpenAI",
+      "RULE-SET,OpenAI,🌍 OpenAI",
+      "RULE-SET,Claude,🌍 OpenAI",
+      "RULE-SET,CleanIP,🌍 CleanIP",
+      
+      // 流媒体服务
+      "RULE-SET,YouTube,📹 油管视频",
+      "RULE-SET,Netflix,🎥 奈飞视频",
+      "RULE-SET,AmazonIp,🎥 奈飞视频",
+      "RULE-SET,Disney,🐹 DisneyPlus",
+      "RULE-SET,HBO,🎦 HBO",
+      "RULE-SET,HBOUSA,🎦 HBO",
+      "RULE-SET,AmazonPrimeVideo,🎦 PrimeVideo",
+      "RULE-SET,AppleTV,🍎 AppleTV",
+      
+      // 谷歌服务
+      "RULE-SET,GoogleFCM,📢 谷歌FCM",
+      "RULE-SET,Google,📢 谷歌",
+      
+      // 国内谷歌服务直连
+      "RULE-SET,GoogleCN,🎯 全球直连",
+      "RULE-SET,SteamCN,🎯 全球直连",
+      
+      // 微软服务
+      "RULE-SET,Bing,Ⓜ️ Bing",
+      "RULE-SET,OneDrive,Ⓜ️ 微软云盘",
+      "RULE-SET,Microsoft,Ⓜ️ 微软服务",
+      
+      // 苹果服务
+      "RULE-SET,Apple,🍎 苹果服务",
+      
+      // 电报
+      "RULE-SET,Telegram,📲 电报消息",
+      
+      // 游戏平台
+      "RULE-SET,Epic,🎮 游戏平台",
+      "RULE-SET,Sony,🎮 游戏平台",
+      "RULE-SET,Steam,🎮 游戏平台",
+      "RULE-SET,Nintendo,🎮 游戏平台",
+      
+      // EMBY服务
+      "RULE-SET,Emby_proxy,🎬 EMBY_proxy",
+      "RULE-SET,Emby_direct,🎬 EMBY_direct",
+      
+      // 哔哩哔哩
+      "RULE-SET,BilibiliHMT,📺 哔哩哔哩",
+      "RULE-SET,Bilibili,📺 哔哩哔哩",
+      
+      // 国内外媒体
+      "RULE-SET,ChinaMedia,🌏 国内媒体",
+      "RULE-SET,ProxyMedia,🌍 国外媒体",
+      
+      // 代理规则
+      "RULE-SET,ProxyGFWlist,🚀 节点选择",
+      
+      // 直连规则
+      "RULE-SET,ChinaDomain,🎯 全球直连",
+      "RULE-SET,ChinaCompanyIp,🎯 全球直连",
+      "RULE-SET,Download,🎯 全球直连",
+      "RULE-SET,Custom_direct,🎯 全球直连",
+      
+      // 地理位置规则
+      "GEOIP,CN,🎯 全球直连",
+      "MATCH,🐟 漏网之鱼"
+    ];
+
+    // 规则集配置
+    ruleProviders = {
+      LocalAreaNetwork: {
+        type: "http",
+        behavior: "classical",
+        url: "https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/LocalAreaNetwork.list",
+        path: "./ruleset/LocalAreaNetwork.list",
+        interval: 86400
+      },
+      UnBan: {
+        type: "http",
+        behavior: "classical",
+        url: "https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/UnBan.list",
+        path: "./ruleset/UnBan.list",
+        interval: 86400
+      },
+      BanAD: {
+        type: "http",
+        behavior: "classical",
+        url: "https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/BanAD.list",
+        path: "./ruleset/BanAD.list",
+        interval: 86400
+      },
+      BanProgramAD: {
+        type: "http",
+        behavior: "classical",
+        url: "https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/BanProgramAD.list",
+        path: "./ruleset/BanProgramAD.list",
+        interval: 86400
+      },
+      openAI: {
+        type: "http",
+        behavior: "classical",
+        url: "https://raw.githubusercontent.com/qsd4014/ss_profile/main/Rules/openAI.list",
+        path: "./ruleset/openAI.list",
+        interval: 86400
+      },
+      OpenAI: {
+        type: "http",
+        behavior: "classical",
+        url: "https://raw.githubusercontent.com/blackmatrix7/ios_rule_script/master/rule/Clash/OpenAI/OpenAI.list",
+        path: "./ruleset/OpenAI.list",
+        interval: 86400
+      },
+      Claude: {
+        type: "http",
+        behavior: "classical",
+        url: "https://raw.githubusercontent.com/blackmatrix7/ios_rule_script/master/rule/Clash/Claude/Claude.list",
+        path: "./ruleset/Claude.list",
+        interval: 86400
+      },
+      CleanIP: {
+        type: "http",
+        behavior: "classical",
+        url: "https://raw.githubusercontent.com/qsd4014/ss_profile/refs/heads/main/Rules/CleanIP.list",
+        path: "./ruleset/CleanIP.list",
+        interval: 86400
+      },
+      YouTube: {
+        type: "http",
+        behavior: "classical",
+        url: "https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/Ruleset/YouTube.list",
+        path: "./ruleset/YouTube.list",
+        interval: 86400
+      },
+      Netflix: {
+        type: "http",
+        behavior: "classical",
+        url: "https://raw.githubusercontent.com/blackmatrix7/ios_rule_script/master/rule/Clash/Netflix/Netflix.list",
+        path: "./ruleset/Netflix.list",
+        interval: 86400
+      },
+      AmazonIp: {
+        type: "http",
+        behavior: "classical",
+        url: "https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/Ruleset/AmazonIp.list",
+        path: "./ruleset/AmazonIp.list",
+        interval: 86400
+      },
+      Disney: {
+        type: "http",
+        behavior: "classical",
+        url: "https://raw.githubusercontent.com/blackmatrix7/ios_rule_script/master/rule/Clash/Disney/Disney.list",
+        path: "./ruleset/Disney.list",
+        interval: 86400
+      },
+      HBO: {
+        type: "http",
+        behavior: "classical",
+        url: "https://raw.githubusercontent.com/blackmatrix7/ios_rule_script/master/rule/Clash/HBO/HBO.list",
+        path: "./ruleset/HBO.list",
+        interval: 86400
+      },
+      HBOUSA: {
+        type: "http",
+        behavior: "classical",
+        url: "https://raw.githubusercontent.com/blackmatrix7/ios_rule_script/master/rule/Clash/HBOUSA/HBOUSA.list",
+        path: "./ruleset/HBOUSA.list",
+        interval: 86400
+      },
+      AmazonPrimeVideo: {
+        type: "http",
+        behavior: "classical",
+        url: "https://raw.githubusercontent.com/blackmatrix7/ios_rule_script/master/rule/Clash/AmazonPrimeVideo/AmazonPrimeVideo.list",
+        path: "./ruleset/AmazonPrimeVideo.list",
+        interval: 86400
+      },
+      AppleTV: {
+        type: "http",
+        behavior: "classical",
+        url: "https://raw.githubusercontent.com/blackmatrix7/ios_rule_script/master/rule/Clash/AppleTV/AppleTV.list",
+        path: "./ruleset/AppleTV.list",
+        interval: 86400
+      },
+      GoogleFCM: {
+        type: "http",
+        behavior: "classical",
+        url: "https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/Ruleset/GoogleFCM.list",
+        path: "./ruleset/GoogleFCM.list",
+        interval: 86400
+      },
+      Google: {
+        type: "http",
+        behavior: "classical",
+        url: "https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/Ruleset/Google.list",
+        path: "./ruleset/Google.list",
+        interval: 86400
+      },
+      GoogleCN: {
+        type: "http",
+        behavior: "classical",
+        url: "https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/GoogleCN.list",
+        path: "./ruleset/GoogleCN.list",
+        interval: 86400
+      },
+      SteamCN: {
+        type: "http",
+        behavior: "classical",
+        url: "https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/Ruleset/SteamCN.list",
+        path: "./ruleset/SteamCN.list",
+        interval: 86400
+      },
+      Bing: {
+        type: "http",
+        behavior: "classical",
+        url: "https://raw.githubusercontent.com/blackmatrix7/ios_rule_script/master/rule/Clash/Bing/Bing.list",
+        path: "./ruleset/Bing.list",
+        interval: 86400
+      },
+      OneDrive: {
+        type: "http",
+        behavior: "classical",
+        url: "https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/OneDrive.list",
+        path: "./ruleset/OneDrive.list",
+        interval: 86400
+      },
+      Microsoft: {
+        type: "http",
+        behavior: "classical",
+        url: "https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/Microsoft.list",
+        path: "./ruleset/Microsoft.list",
+        interval: 86400
+      },
+      Apple: {
+        type: "http",
+        behavior: "classical",
+        url: "https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/Apple.list",
+        path: "./ruleset/Apple.list",
+        interval: 86400
+      },
+      Telegram: {
+        type: "http",
+        behavior: "classical",
+        url: "https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/Telegram.list",
+        path: "./ruleset/Telegram.list",
+        interval: 86400
+      },
+      Epic: {
+        type: "http",
+        behavior: "classical",
+        url: "https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/Ruleset/Epic.list",
+        path: "./ruleset/Epic.list",
+        interval: 86400
+      },
+      Sony: {
+        type: "http",
+        behavior: "classical",
+        url: "https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/Ruleset/Sony.list",
+        path: "./ruleset/Sony.list",
+        interval: 86400
+      },
+      Steam: {
+        type: "http",
+        behavior: "classical",
+        url: "https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/Ruleset/Steam.list",
+        path: "./ruleset/Steam.list",
+        interval: 86400
+      },
+      Nintendo: {
+        type: "http",
+        behavior: "classical",
+        url: "https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/Ruleset/Nintendo.list",
+        path: "./ruleset/Nintendo.list",
+        interval: 86400
+      },
+      Emby_proxy: {
+        type: "http",
+        behavior: "classical",
+        url: "https://raw.githubusercontent.com/qsd4014/ss_profile/main/Rules/Emby_proxy.list",
+        path: "./ruleset/Emby_proxy.list",
+        interval: 86400
+      },
+      Emby_direct: {
+        type: "http",
+        behavior: "classical",
+        url: "https://raw.githubusercontent.com/qsd4014/ss_profile/main/Rules/Emby_direct.list",
+        path: "./ruleset/Emby_direct.list",
+        interval: 86400
+      },
+      BilibiliHMT: {
+        type: "http",
+        behavior: "classical",
+        url: "https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/Ruleset/BilibiliHMT.list",
+        path: "./ruleset/BilibiliHMT.list",
+        interval: 86400
+      },
+      Bilibili: {
+        type: "http",
+        behavior: "classical",
+        url: "https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/Ruleset/Bilibili.list",
+        path: "./ruleset/Bilibili.list",
+        interval: 86400
+      },
+      ChinaMedia: {
+        type: "http",
+        behavior: "classical",
+        url: "https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/ChinaMedia.list",
+        path: "./ruleset/ChinaMedia.list",
+        interval: 86400
+      },
+      ProxyMedia: {
+        type: "http",
+        behavior: "classical",
+        url: "https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/ProxyMedia.list",
+        path: "./ruleset/ProxyMedia.list",
+        interval: 86400
+      },
+      ProxyGFWlist: {
+        type: "http",
+        behavior: "classical",
+        url: "https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/ProxyGFWlist.list",
+        path: "./ruleset/ProxyGFWlist.list",
+        interval: 86400
+      },
+      ChinaDomain: {
+        type: "http",
+        behavior: "classical",
+        url: "https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/ChinaDomain.list",
+        path: "./ruleset/ChinaDomain.list",
+        interval: 86400
+      },
+      ChinaCompanyIp: {
+        type: "http",
+        behavior: "classical",
+        url: "https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/ChinaCompanyIp.list",
+        path: "./ruleset/ChinaCompanyIp.list",
+        interval: 86400
+      },
+      Download: {
+        type: "http",
+        behavior: "classical",
+        url: "https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/Download.list",
+        path: "./ruleset/Download.list",
+        interval: 86400
+      },
+      Custom_direct: {
+        type: "http",
+        behavior: "classical",
+        url: "https://raw.githubusercontent.com/qsd4014/ss_profile/main/Rules/Custom_direct.list",
+        path: "./ruleset/Custom_direct.list",
+        interval: 86400
+      }
+    };
+  }
 
   // 构建配置对象
   const config = {
-    "proxy-groups": allProxyGroups,
-    rules: rules,
-    "rule-providers": ruleProviders
+    proxies: proxies,  // 必须包含原始节点信息
+    "proxy-groups": allProxyGroups
   };
+
+  // 添加规则相关配置
+  if (rules.length > 0) {
+    config.rules = rules;
+  }
+  if (Object.keys(ruleProviders).length > 0) {
+    config["rule-providers"] = ruleProviders;
+  }
 
   // 如果需要完整配置，添加基础设置
   if (full) {
@@ -959,8 +977,11 @@ function operator(proxies = [], targetPlatform, context) {
     config["unified-delay"] = true;
     config["tcp-concurrent"] = true;
     config["global-client-fingerprint"] = "chrome";
-    config["keep-alive-idle"] = keepalive ? 600 : null;
-    config["keep-alive-interval"] = keepalive ? 15 : null;
+    
+    if (keepalive) {
+      config["keep-alive-idle"] = 600;
+      config["keep-alive-interval"] = 15;
+    }
     
     // 外部控制
     config["external-controller"] = "127.0.0.1:9090";
@@ -1053,9 +1074,11 @@ function operator(proxies = [], targetPlatform, context) {
     };
   }
 
-  return {
-    ...config
-  };
+  console.log('[Sub-Store Script] Configuration generated successfully');
+  console.log(`[Sub-Store Script] Total proxies: ${config.proxies.length}`);
+  console.log(`[Sub-Store Script] Total proxy groups: ${config["proxy-groups"].length}`);
+  
+  return config;
 }
 
 // 解析URL参数
@@ -1079,15 +1102,20 @@ function getParams(url) {
 }
 
 // 使用说明:
-// 1. 基础使用：直接使用脚本URL
+// 1. 基础使用：直接使用脚本URL生成策略组
 // 2. 参数使用：在URL后添加 #参数名=值&参数名2=值2
-//    例如：script-url#loadbalance=true&landing=true&ipv6=false
+//    例如：script-url#full=true&ipv6=false&keepalive=true
 // 3. 支持的参数：
 //    - loadbalance: 启用负载均衡 (默认false)
 //    - landing: 启用落地节点功能 (默认false)
 //    - ipv6: 启用IPv6支持 (默认false)
-//    - full: 生成完整配置 (默认false)
+//    - full: 生成完整配置包括规则 (默认false)
 //    - keepalive: 启用TCP Keep Alive (默认false)
+//
+// 使用示例:
+// - 基础使用: https://raw.githubusercontent.com/qsd4014/ss_profile/main/substore-override.js
+// - 完整配置: https://raw.githubusercontent.com/qsd4014/ss_profile/main/substore-override.js#full=true
+// - 自定义: https://raw.githubusercontent.com/qsd4014/ss_profile/main/substore-override.js#full=true&ipv6=true&keepalive=true
 //
 // 节点过滤说明:
 // - 0.X 组：选择低倍率节点（0.5X等），排除高倍率（2X/3X/10X等）
@@ -1096,5 +1124,5 @@ function getParams(url) {
 // - 公益节点：选择免费或公益性质的节点
 // - 自建节点：选择自建或Oracle等节点
 //
-// 分流规则完全匹配mihomo.yaml的逻辑
-// 修复版本 - 2025-09-29: 同时匹配大小写x，正确过滤高倍流量节点
+// 分流规则完全匹配mihomo.yaml的逻辑（仅在full=true时生效）
+// 修复版本 - 2025-09-29: 修复输出空登问题，添加调试日志，修复节点过滤
