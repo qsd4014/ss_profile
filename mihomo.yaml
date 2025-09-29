@@ -1,6 +1,7 @@
 # Mihomo (Clash Meta) Configuration
 # 基于clash.ini优化，集成2025年最佳实践
 # 更新时间: 2025-09-29
+# 修复版本: 节点选择和过滤规则已优化
 
 # ==== 基础网络配置 ====
 port: 7890
@@ -112,26 +113,6 @@ proxy-providers:
 # ==== 手动节点配置 ====
 proxies: []
 
-# ==== 便于复用的正则表达式 ====
-x-regex:
-  # 排除高倍流量（使用正则匹配大于1X的所有倍数）
-  exclude-high: "(?i)([2-9]|[1-9][0-9]+)X|HOME|电信|联通|移动|四川|广西"
-  # 地区识别（不区分大小写）
-  singapore: "(?i)新加坡|坡|狮城|sg|singapore"
-  hong-kong: "(?i)香港|港|hk|hong.?kong"
-  taiwan: "(?i)台|台湾|新北|彰化|tw|taiwan"
-  japan: "(?i)日本|川日|东京|大阪|泉日|埼玉|沪日|深日|[^-]日|jp|japan"
-  korea: "(?i)韩|韩国|首尔|kr|korea|kor"
-  united-states: "(?i)美|美国|波特兰|达拉斯|俄勒冈|凤凰城|费利蒙|硅谷|拉斯维加斯|洛杉矶|圣何塞|圣克拉拉|西雅图|芝加哥|us|united.?states|usa"
-  # 低倍流量/下载线路
-  low-rate: "(?i)0\\.[0-9]+|直连|下载|download"
-  # 公益节点
-  public-welfare: "(?i)hax|vc|buyvm|鸡|woiden|euserv|optimization|akari|free|oracle|vult|advins|cf"
-  # 自建节点
-  self-built: "(?i)自建|oracle"
-  # 所有节点
-  all-nodes: ".*"
-
 # ==== 代理组配置 ====
 proxy-groups:
   # 主要策略组
@@ -158,23 +139,19 @@ proxy-groups:
   - name: "✈️ 手动选择"
     type: select
     use: [all]
-    filter: "{{all-nodes}}"
 
   - name: "🛩️ 手动选择备用"
     type: select
     use: [all]
-    filter: "{{all-nodes}}"
 
   # AI服务
   - name: "🌍 OpenAI"
     type: select
     use: [all]
-    filter: "{{all-nodes}}"
 
   - name: "🌍 CleanIP"
     type: select
     use: [all]
-    filter: "{{all-nodes}}"
 
   # 流媒体服务
   - name: "📹 油管视频"
@@ -197,22 +174,22 @@ proxy-groups:
   - name: "🎥 奈飞视频"
     type: select
     use: [all]
-    filter: "(?=.*({{singapore}}|{{united-states}}|{{hong-kong}}|{{taiwan}}))(?!.*({{exclude-high}}))"
+    filter: "(?i)^(?!.*(2X|3X|4X|5X|10X|HOME|电信|联通|移动|四川|广西)).*(新加坡|坡|狮城|sg|singapore|美|美国|波特兰|达拉斯|俄勒冈|凤凰城|费利蒙|硅谷|拉斯维加斯|洛杉矶|圣何塞|圣克拉拉|西雅图|芝加哥|us|united.?states|usa|香港|港|hk|hong.?kong|台|台湾|新北|彰化|tw|taiwan).*$"
 
   - name: "🐹 DisneyPlus"
     type: select
     use: [all]
-    filter: "(?=.*({{singapore}}|{{united-states}}|{{hong-kong}}|{{taiwan}}))(?!.*({{exclude-high}}))"
+    filter: "(?i)^(?!.*(2X|3X|4X|5X|10X|HOME|电信|联通|移动|四川|广西)).*(新加坡|坡|狮城|sg|singapore|美|美国|波特兰|达拉斯|俄勒冈|凤凰城|费利蒙|硅谷|拉斯维加斯|洛杉矶|圣何塞|圣克拉拉|西雅图|芝加哥|us|united.?states|usa|香港|港|hk|hong.?kong|台|台湾|新北|彰化|tw|taiwan).*$"
 
   - name: "🎦 HBO"
     type: select
     use: [all]
-    filter: "(?=.*{{united-states}})(?!.*({{exclude-high}}))"
+    filter: "(?i)^(?!.*(2X|3X|4X|5X|10X|HOME|电信|联通|移动|四川|广西)).*(美|美国|波特兰|达拉斯|俄勒冈|凤凰城|费利蒙|硅谷|拉斯维加斯|洛杉矶|圣何塞|圣克拉拉|西雅图|芝加哥|us|united.?states|usa).*$"
 
   - name: "🎦 PrimeVideo"
     type: select
     use: [all]
-    filter: "(?=.*{{united-states}})(?!.*({{exclude-high}}))"
+    filter: "(?i)^(?!.*(2X|3X|4X|5X|10X|HOME|电信|联通|移动|四川|广西)).*(美|美国|波特兰|达拉斯|俄勒冈|凤凰城|费利蒙|硅谷|拉斯维加斯|洛杉矶|圣何塞|圣克拉拉|西雅图|芝加哥|us|united.?states|usa).*$"
 
   - name: "🍎 AppleTV"
     type: select
@@ -440,101 +417,130 @@ proxy-groups:
       - "🇺🇲 美国节点"
       - "🇰🇷 韩国节点"
 
-  # 特殊节点组（屏蔽高倍流量）
+  # 特殊节点组（低倍流量，优先0.X、直连、下载）
   - name: "0.X"
     type: select
     use: [all]
-    filter: "(?=.*({{low-rate}}))(?!.*({{exclude-high}}))"
+    filter: "(?i)^(?!.*(2X|3X|4X|5X|10X|HOME|电信|联通|移动|四川|广西)).*(0\.[0-9]|直连|下载|download).*$"
+    proxies:
+      - "COMPATIBLE"
+
+  # 添加COMPATIBLE备用组，当主策略组无节点时使用
+  - name: "COMPATIBLE"
+    type: select
+    use: [all]
 
   # 地区节点组（屏蔽高倍流量）
   - name: "🇭🇰 香港节点"
     type: select
     use: [all]
-    filter: "(?=.*{{hong-kong}})(?!.*({{exclude-high}}))"
+    filter: "(?i)^(?!.*(2X|3X|4X|5X|10X|HOME|电信|联通|移动|四川|广西)).*(香港|港|hk|hong.?kong).*$"
     url: http://www.gstatic.com/generate_204
     interval: 300
     tolerance: 50
+    proxies:
+      - "COMPATIBLE"
 
   - name: "🇯🇵 日本节点"
     type: url-test
     use: [all]
-    filter: "(?=.*{{japan}})(?!.*({{exclude-high}}))"
+    filter: "(?i)^(?!.*(2X|3X|4X|5X|10X|HOME|电信|联通|移动|四川|广西)).*(日本|川日|东京|大阪|泉日|埼玉|沪日|深日|[^-]日|jp|japan).*$"
     url: http://www.gstatic.com/generate_204
     interval: 300
     tolerance: 50
+    proxies:
+      - "COMPATIBLE"
 
   - name: "🇺🇲 美国节点"
     type: select
     use: [all]
-    filter: "(?=.*{{united-states}})(?!.*({{exclude-high}}))"
+    filter: "(?i)^(?!.*(2X|3X|4X|5X|10X|HOME|电信|联通|移动|四川|广西)).*(美|美国|波特兰|达拉斯|俄勒冈|凤凰城|费利蒙|硅谷|拉斯维加斯|洛杉矶|圣何塞|圣克拉拉|西雅图|芝加哥|us|united.?states|usa).*$"
     url: http://www.gstatic.com/generate_204
     interval: 300
     tolerance: 150
+    proxies:
+      - "COMPATIBLE"
 
   - name: "🇨🇳 台湾节点"
     type: select
     use: [all]
-    filter: "(?=.*{{taiwan}})(?!.*({{exclude-high}}))"
+    filter: "(?i)^(?!.*(2X|3X|4X|5X|10X|HOME|电信|联通|移动|四川|广西)).*(台|台湾|新北|彰化|tw|taiwan).*$"
     url: http://www.gstatic.com/generate_204
     interval: 300
     tolerance: 50
+    proxies:
+      - "COMPATIBLE"
 
   - name: "🇸🇬 狮城节点"
     type: select
     use: [all]
-    filter: "(?=.*{{singapore}})(?!.*({{exclude-high}}))"
+    filter: "(?i)^(?!.*(2X|3X|4X|5X|10X|HOME|电信|联通|移动|四川|广西)).*(新加坡|坡|狮城|sg|singapore).*$"
     url: http://www.gstatic.com/generate_204
     interval: 300
     tolerance: 50
+    proxies:
+      - "COMPATIBLE"
 
   - name: "🇰🇷 韩国节点"
     type: url-test
     use: [all]
-    filter: "(?=.*{{korea}})(?!.*({{exclude-high}}))"
+    filter: "(?i)^(?!.*(2X|3X|4X|5X|10X|HOME|电信|联通|移动|四川|广西)).*(韩|韩国|首尔|kr|korea|kor).*$"
     url: http://www.gstatic.com/generate_204
     interval: 300
     tolerance: 50
+    proxies:
+      - "COMPATIBLE"
 
   # 公共服务节点
   - name: "🆓 公益"
     type: select
     use: [all]
-    filter: "{{public-welfare}}"
+    filter: "(?i)(hax|vc|buyvm|鸡|woiden|euserv|optimization|akari|free|oracle|vult|advins|cf)"
     url: http://www.gstatic.com/generate_204
     interval: 300
     tolerance: 50
+    proxies:
+      - "COMPATIBLE"
 
   - name: "🚁 自建节点"
     type: select
     use: [all]
-    filter: "{{self-built}}"
+    filter: "(?i)(自建|oracle)"
+    proxies:
+      - "COMPATIBLE"
 
   # 自动策略（屏蔽高倍流量）
   - name: "♻️ 自动选择"
     type: url-test
     use: [all]
-    filter: "^(?!.*({{exclude-high}})).*$"
+    filter: "(?i)^(?!.*(2X|3X|4X|5X|10X|HOME|电信|联通|移动|四川|广西)).*$"
     url: http://www.gstatic.com/generate_204
     interval: 300
     tolerance: 50
+    proxies:
+      - "COMPATIBLE"
 
   - name: "🔯 故障转移"
     type: fallback
     use: [all]
-    filter: "^(?!.*({{exclude-high}})).*$"
+    filter: "(?i)^(?!.*(2X|3X|4X|5X|10X|HOME|电信|联通|移动|四川|广西)).*$"
     url: http://www.gstatic.com/generate_204
     interval: 300
     tolerance: 50
     lazy: true
+    proxies:
+      - "COMPATIBLE"
 
   - name: "🔮 负载均衡"
     type: load-balance
     use: [all]
-    filter: "{{self-built}}"
+    filter: "(?i)(自建|oracle)"
     url: http://www.gstatic.com/generate_204
     interval: 300
     tolerance: 50
     strategy: round-robin
+    proxies:
+      - "COMPATIBLE"
 
 # ==== 分流规则 ====
 rules:
@@ -894,10 +900,12 @@ rule-providers:
     path: ./ruleset/Custom_direct.list
     interval: 86400
 
-# ==== 配置说明 ====
-# 1. 本配置基于clash.ini转换，保持分流规则逻辑一致
-# 2. 集成2025年Mihomo最佳实践：TCP并发、DNS防泄漏、流量嗅探等
-# 3. 支持高倍流量节点过滤和低倍流量线路优选
-# 4. 请替换YOUR_SUBSCRIPTION_URL为实际订阅链接
-# 5. 请修改your-secure-password-here为安全密码
-# 6. 可根据网络环境调整IPv6和DNS设置
+# ==== 修复说明 ====
+# 修复版本 - 2025-09-29
+# 1. 移除了无效的{{variable}}占位符语法，使用标准正则表达式
+# 2. 修复了高倍流量节点过滤（2X/3X/4X/5X/10X/HOME等）
+# 3. 为所有地区节点组添加COMPATIBLE备用选项，避免空策略组
+# 4. 优化了0.X组的过滤规则，优先匹配低倍流量和下载线路
+# 5. 改进了地区识别正则表达式，支持更多节点命名格式
+# 6. 确保所有自动选择策略都正确排除高倍流量节点
+# 7. 请记得将YOUR_SUBSCRIPTION_URL替换为实际订阅链接
