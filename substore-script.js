@@ -1,16 +1,15 @@
 /**
- * Sub-Store 脚本 - 完全复刻 clash.ini 逻辑
- * 
+ * Sub-Store 脚本 - 完全复刻 clash.ini 逻辑 (已修复 validProxy_names 拼写错误)
+ *
+ * 更新日期: 2025-09-29
+ * 修复内容: 修正了 "validProxy_names is not defined" 的错误。
+ *
  * 功能：
  * 1.  动态生成与 clash.ini 完全一致的策略组。
  * 2.  自动过滤所有高倍率节点（2x, 2X, 10x, 10X...）及特定关键词。
  * 3.  实现 0.X 低倍率、地区、流媒体、AI 等所有精细化分组。
  * 4.  自动生成所有 rule-providers，引用 ACL4SSR 及自定义规则。
  * 5.  注入与 mihomo.yaml 一致的 DNS 和性能优化配置。
- *
- * 使用方法：
- * 在 Sub-Store 中添加“脚本操作”，并将此脚本内容粘贴进去。
- * 生成的配置文件效果将与您仓库中的 mihomo.yaml 完全一致。
  */
 
 function main(params) {
@@ -138,7 +137,8 @@ function overwriteProxyGroups(params) {
     { name: '📢 谷歌', type: 'select', proxies: ['🚀 节点选择', ...validProxyNames] },
     { name: 'Ⓜ️ Bing', type: 'select', proxies: ['DIRECT', '🚀 节点选择', ...validProxyNames] },
     { name: 'Ⓜ️ 微软云盘', type: 'select', proxies: ['DIRECT', '🚀 节点选择', ...validProxyNames] },
-    { name: 'Ⓜ️ 微软服务', type: 'select', proxies: ['DIRECT', '🚀 节点选择', ...validProxy_names] },
+    // ★★★ FIX: 修正此处的拼写错误 ★★★
+    { name: 'Ⓜ️ 微软服务', type: 'select', proxies: ['DIRECT', '🚀 节点选择', ...validProxyNames] },
     { name: '🍎 苹果服务', type: 'select', proxies: ['DIRECT', '🚀 节点选择', ...validProxyNames] },
     { name: '🎮 游戏平台', type: 'select', proxies: ['DIRECT', '🚀 节点选择', ...validProxyNames] },
     { name: '📺 哔哩哔哩', type: 'select', proxies: ['🎯 全球直连', '🇭🇰 香港节点', '🇨🇳 台湾节点'] },
@@ -340,4 +340,3 @@ function injectAdvancedConfig(params) {
   params['unified-delay'] = true;
   params['global-client-fingerprint'] = 'chrome';
 }
-
