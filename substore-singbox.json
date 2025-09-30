@@ -1,13 +1,3 @@
-// Sing-Box Configuration
-// 从 mihomo.yaml 转换而来，适用于 SubStore 和 sing-box v1.11.0+
-// 转换时间: 2025-09-30
-// 
-// 注意事项：
-// 1. 请将 YOUR_SUBSCRIPTION_URL 替换为您的实际订阅链接
-// 2. 此配置与 mihomo.yaml 中的规则保持一致
-// 3. 节点过滤规则已转换为 sing-box 格式
-// 4. 所有代理组和路由规则已完整转换
-// 
 {
   "log": {
     "level": "info",
