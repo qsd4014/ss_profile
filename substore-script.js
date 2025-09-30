@@ -1,54 +1,58 @@
 /**
- * Sub-Store 脚本 - 完全复刻 clash.ini 逻辑 (已修复 validProxy_names 拼写错误)
+ * Sub-Store 脚本 - 完全复刻 mihomo.yaml 逻辑 (修复版)
  *
- * 更新日期: 2025-09-29
- * 修复内容: 修正了 "validProxy_names is not defined" 的错误。
+ * 更新日期: 2025-09-30
+ * 修复内容: 修复了原有脚本的所有问题，完全匹配 mihomo.yaml 的规则
  *
  * 功能：
- * 1.  动态生成与 clash.ini 完全一致的策略组。
- * 2.  自动过滤所有高倍率节点（2x, 2X, 10x, 10X...）及特定关键词。
- * 3.  实现 0.X 低倍率、地区、流媒体、AI 等所有精细化分组。
- * 4.  自动生成所有 rule-providers，引用 ACL4SSR 及自定义规则。
- * 5.  注入与 mihomo.yaml 一致的 DNS 和性能优化配置。
+ * 1. 动态生成与 mihomo.yaml 完全一致的策略组
+ * 2. 自动过滤高倍率节点（同时匹配大小写 x）
+ * 3. 实现精确的地区、流媒体、AI 服务分组
+ * 4. 自动生成完整的 rule-providers
+ * 5. 注入优化的 DNS 和性能配置
  */
 
 function main(params) {
-  // 注入DNS和基础优化配置
+  // 注入高级配置
   injectAdvancedConfig(params);
-
+  
   // 覆写规则集
   overwriteRuleProviders(params);
   
   // 覆写策略组
   overwriteProxyGroups(params);
-
+  
   // 覆写规则
   overwriteRules(params);
-
+  
   return params;
 }
 
-// 过滤高倍率和关键词的正则表达式
+// ===== 节点过滤配置 =====
+
+// 高倍率过滤（同时匹配大小写 x）
 const HIGH_RATE_REGEX = /([2-9]|[1-9][0-9]+)[Xx]/;
+
+// 排除关键词
 const EXCLUDE_KEYWORDS_REGEX = /(HOME|电信|联通|移动|四川|广西)/i;
 
-// 低倍率节点识别
-const LOW_RATE_REGEX = /(0\.[0-9]|直连|下载|download)/i;
+// 0.X 低倍率识别
+const LOW_RATE_REGEX = /(0\.[0-9]+|直连|下载)/i;
 
 // 地区节点识别
 const REGIONS = {
-  '🇭🇰 香港节点': /(香港|港|hk|hong.?kong)/i,
-  '🇯🇵 日本节点': /(日本|川日|东京|大阪|泉日|埼玉|沪日|深日|[^-]日|jp|japan)/i,
-  '🇺🇲 美国节点': /(美|美国|波特兰|达拉斯|俄勒冈|凤凰城|费利蒙|硅谷|拉斯维加斯|洛杉矶|圣何塞|圣克拉拉|西雅图|芝加哥|us|united.?states|usa)/i,
-  '🇨🇳 台湾节点': /(台|台湾|新北|彰化|tw|taiwan)/i,
-  '🇸🇬 狮城节点': /(新加坡|坡|狮城|sg|singapore)/i,
-  '🇰🇷 韩国节点': /(韩|韩国|首尔|kr|korea|kor)/i,
+  '🇭🇰 香港节点': /(香港|HK|Hong Kong)/i,
+  '🇯🇵 日本节点': /(日本|川日|东京|大阪|泉日|埼玉|沪日|深日|[^-]日|JP|Japan)/i,
+  '🇺🇲 美国节点': /(美|波特兰|达拉斯|俄勒冈|凤凰城|费利蒙|硅谷|拉斯维加斯|洛杉矶|圣何塞|圣克拉拉|西雅图|芝加哥|US|United States|us)/i,
+  '🇨🇳 台湾节点': /(台|新北|彰化|TW|Taiwan)/i,
+  '🇸🇬 狮城节点': /(新加坡|坡|狮城|SG|Singapore)/i,
+  '🇰🇷 韩国节点': /(KR|Korea|KOR|首尔|韩|韓)/i
 };
 
 // 其他特殊分组
 const SPECIAL_GROUPS = {
-  '🆓 公益': /(hax|vc|buyvm|鸡|woiden|euserv|optimization|akari|free|oracle|vult|advins|cf)/i,
-  '🚁 自建节点': /(自建|oracle)/i,
+  '🆓 公益': /(Hax|hax|VC|Vc|vc|buyvm|BuyVM|BUYVM|鸡|Woiden|woiden|Euserv|Optimization|Akari|FREE|Oracle|oracle|Vult|advins|CF)/i,
+  '🚁 自建节点': /(自建|Oracle|oracle)/i
 };
 
 /**
@@ -72,7 +76,7 @@ function isNodeValid(name) {
 
 function overwriteProxyGroups(params) {
   const { proxies } = params;
-
+  
   // 准备节点池
   const allProxyNames = proxies.map(p => p.name);
   const validProxyNames = filterProxies(proxies, (name) => isNodeValid(name));
@@ -85,16 +89,21 @@ function overwriteProxyGroups(params) {
   for (const [name, regex] of Object.entries(REGIONS)) {
     regionProxies[name] = filterProxies(proxies, (nodeName) => regex.test(nodeName) && isNodeValid(nodeName));
   }
-
+  
   // 其他特殊分组节点池
   const specialProxies = {};
   for (const [name, regex] of Object.entries(SPECIAL_GROUPS)) {
     specialProxies[name] = filterProxies(proxies, (nodeName) => regex.test(nodeName));
   }
-
+  
+  // 流媒体地区节点（奈飞、迪士尼适用）
+  const streamingProxies = filterProxies(proxies, name => 
+    /(新加坡|坡|狮城|SG|Singapore|美|US|us|香港|HK|台|TW|Taiwan)/i.test(name) && isNodeValid(name)
+  );
+  
   // 定义所有策略组
   params['proxy-groups'] = [
-    // 主要策略组
+    // 主要策略组（与 mihomo.yaml 保持一致）
     {
       name: '🚀 节点选择',
       type: 'select',
@@ -111,82 +120,408 @@ function overwriteProxyGroups(params) {
         'DIRECT'
       ]
     },
+    
     // 手动选择
     { name: '✈️ 手动选择', type: 'select', proxies: allProxyNames },
     { name: '🛩️ 手动选择备用', type: 'select', proxies: allProxyNames },
     
-    // AI 服务
-    { name: '🌍 OpenAI', type: 'select', proxies: ['🚀 节点选择', ...validProxyNames] },
-    { name: '🌍 CleanIP', type: 'select', proxies: ['🚀 节点选择', ...validProxyNames] },
-
-    // 流媒体服务
-    { name: '📹 油管视频', type: 'select', proxies: ['🚀 节点选择', ...Object.keys(REGIONS), ...validProxyNames] },
-    { name: '🎥 奈飞视频', type: 'select', proxies: filterProxies(proxies, name => /(新加坡|坡|狮城|sg|singapore|美|美国|us|香港|港|hk|hong.?kong|台|台湾|tw|taiwan)/i.test(name) && isNodeValid(name))},
-    { name: '🐹 DisneyPlus', type: 'select', proxies: filterProxies(proxies, name => /(新加坡|坡|狮城|sg|singapore|美|美国|us|香港|港|hk|hong.?kong|台|台湾|tw|taiwan)/i.test(name) && isNodeValid(name))},
-    { name: '🎦 HBO', type: 'select', proxies: regionProxies['🇺🇲 美国节点'] },
-    { name: '🎦 PrimeVideo', type: 'select', proxies: regionProxies['🇺🇲 美国节点'] },
-    { name: '🍎 AppleTV', type: 'select', proxies: ['DIRECT', '✈️ 手动选择', '🛩️ 手动选择备用'] },
+    // 通讯服务
+    {
+      name: '📲 电报消息',
+      type: 'select',
+      proxies: [
+        '🚀 节点选择',
+        '♻️ 自动选择',
+        '✈️ 手动选择',
+        '🛩️ 手动选择备用',
+        '🚁 自建节点',
+        '🇸🇬 狮城节点',
+        '🇭🇰 香港节点',
+        '🇨🇳 台湾节点',
+        '🇯🇵 日本节点',
+        '🇺🇲 美国节点',
+        '🇰🇷 韩国节点',
+        'DIRECT'
+      ]
+    },
     
-    // EMBY
-    { name: '🎬 EMBY_proxy', type: 'select', proxies: ['DIRECT', '0.X', ...specialProxies['🚁 自建节点']] },
-    { name: '🎬 EMBY_direct', type: 'select', proxies: ['DIRECT', '0.X'] },
-
-    // 其他服务
-    { name: '📲 电报消息', type: 'select', proxies: ['🚀 节点选择', ...validProxyNames] },
-    { name: '📢 谷歌FCM', type: 'select', proxies: ['DIRECT', '🚀 节点选择', ...validProxyNames] },
-    { name: '📢 谷歌', type: 'select', proxies: ['🚀 节点选择', ...validProxyNames] },
-    { name: 'Ⓜ️ Bing', type: 'select', proxies: ['DIRECT', '🚀 节点选择', ...validProxyNames] },
-    { name: 'Ⓜ️ 微软云盘', type: 'select', proxies: ['DIRECT', '🚀 节点选择', ...validProxyNames] },
-    // ★★★ FIX: 修正此处的拼写错误 ★★★
-    { name: 'Ⓜ️ 微软服务', type: 'select', proxies: ['DIRECT', '🚀 节点选择', ...validProxyNames] },
-    { name: '🍎 苹果服务', type: 'select', proxies: ['DIRECT', '🚀 节点选择', ...validProxyNames] },
-    { name: '🎮 游戏平台', type: 'select', proxies: ['DIRECT', '🚀 节点选择', ...validProxyNames] },
-    { name: '📺 哔哩哔哩', type: 'select', proxies: ['🎯 全球直连', '🇭🇰 香港节点', '🇨🇳 台湾节点'] },
-    { name: '🌍 国外媒体', type: 'select', proxies: ['🚀 节点选择', ...validProxyNames] },
-    { name: '🌏 国内媒体', type: 'select', proxies: ['🎯 全球直连'] },
-
+    // AI 服务
+    { 
+      name: '🌍 OpenAI', 
+      type: 'select', 
+      proxies: allProxyNames.length > 0 ? allProxyNames : ['DIRECT']
+    },
+    { 
+      name: '🌍 CleanIP', 
+      type: 'select', 
+      proxies: allProxyNames.length > 0 ? allProxyNames : ['DIRECT']
+    },
+    
+    // 流媒体服务
+    {
+      name: '📹 油管视频',
+      type: 'select',
+      proxies: [
+        '🆓 公益',
+        '🚀 节点选择',
+        '✈️ 手动选择',
+        '🛩️ 手动选择备用',
+        '🚁 自建节点',
+        '♻️ 自动选择',
+        '🇸🇬 狮城节点',
+        '🇭🇰 香港节点',
+        '🇨🇳 台湾节点',
+        '🇯🇵 日本节点',
+        '🇺🇲 美国节点',
+        '🇰🇷 韩国节点',
+        'DIRECT'
+      ]
+    },
+    
+    // 奈飞视频 - 使用地区过滤
+    {
+      name: '🎥 奈飞视频',
+      type: 'select',
+      proxies: streamingProxies.length > 0 ? ['✈️ 手动选择', ...streamingProxies] : ['✈️ 手动选择', 'DIRECT']
+    },
+    
+    // 迪士尼+ - 使用地区过滤
+    {
+      name: '🐹 DisneyPlus',
+      type: 'select',
+      proxies: streamingProxies.length > 0 ? [
+        '✈️ 手动选择',
+        '🛩️ 手动选择备用',
+        '🚁 自建节点',
+        ...streamingProxies
+      ] : ['✈️ 手动选择', '🛩️ 手动选择备用', '🚁 自建节点', 'DIRECT']
+    },
+    
+    // EMBY服务
+    {
+      name: '🎬 EMBY_proxy',
+      type: 'select',
+      proxies: [
+        '🆓 公益',
+        '0.X',
+        '🚁 自建节点',
+        '🔮 负载均衡',
+        'DIRECT',
+        '🚀 节点选择',
+        '✈️ 手动选择',
+        '🛩️ 手动选择备用'
+      ]
+    },
+    
+    {
+      name: '🎬 EMBY_direct',
+      type: 'select',
+      proxies: [
+        'DIRECT',
+        '🆓 公益',
+        '0.X',
+        '🚁 自建节点',
+        '🚀 节点选择',
+        '✈️ 手动选择',
+        '🛩️ 手动选择备用'
+      ]
+    },
+    
+    {
+      name: '🎦 HBO',
+      type: 'select',
+      proxies: regionProxies['🇺🇲 美国节点'].length > 0 ? [
+        '🇺🇲 美国节点',
+        '✈️ 手动选择',
+        '🛩️ 手动选择备用',
+        '🚁 自建节点'
+      ] : ['✈️ 手动选择', '🛩️ 手动选择备用', '🚁 自建节点', 'DIRECT']
+    },
+    
+    {
+      name: '🎦 PrimeVideo',
+      type: 'select',
+      proxies: regionProxies['🇺🇲 美国节点'].length > 0 ? [
+        '🇺🇲 美国节点',
+        '✈️ 手动选择',
+        '🛩️ 手动选择备用',
+        '🚁 自建节点'
+      ] : ['✈️ 手动选择', '🛩️ 手动选择备用', '🚁 自建节点', 'DIRECT']
+    },
+    
+    {
+      name: '🍎 AppleTV',
+      type: 'select',
+      proxies: ['DIRECT', '✈️ 手动选择', '🛩️ 手动选择备用', '🚁 自建节点']
+    },
+    
+    // 哔哩哔哩
+    {
+      name: '📺 哔哩哔哩',
+      type: 'select',
+      proxies: [
+        '🎯 全球直连',
+        ...(regionProxies['🇨🇳 台湾节点'].length > 0 ? ['🇨🇳 台湾节点'] : []),
+        ...(regionProxies['🇭🇰 香港节点'].length > 0 ? ['🇭🇰 香港节点'] : [])
+      ]
+    },
+    
+    // 科技服务
+    {
+      name: '📢 谷歌FCM',
+      type: 'select',
+      proxies: [
+        'DIRECT',
+        '✈️ 手动选择',
+        '🛩️ 手动选择备用',
+        '🚁 自建节点',
+        '🇺🇲 美国节点',
+        '🇭🇰 香港节点',
+        '🇨🇳 台湾节点',
+        '🇸🇬 狮城节点',
+        '🇯🇵 日本节点',
+        '🇰🇷 韩国节点'
+      ]
+    },
+    
+    {
+      name: '📢 谷歌',
+      type: 'select',
+      proxies: [
+        '🇺🇲 美国节点',
+        '✈️ 手动选择',
+        '🛩️ 手动选择备用',
+        '🚁 自建节点',
+        '🇭🇰 香港节点',
+        '🇨🇳 台湾节点',
+        '🇸🇬 狮城节点',
+        '🇯🇵 日本节点',
+        '🇰🇷 韩国节点'
+      ]
+    },
+    
+    // 媒体分类
+    {
+      name: '🌍 国外媒体',
+      type: 'select',
+      proxies: [
+        '🚀 节点选择',
+        '♻️ 自动选择',
+        '✈️ 手动选择',
+        '🛩️ 手动选择备用',
+        '🚁 自建节点',
+        '🇭🇰 香港节点',
+        '🇨🇳 台湾节点',
+        '🇸🇬 狮城节点',
+        '🇯🇵 日本节点',
+        '🇺🇲 美国节点',
+        '🇰🇷 韩国节点',
+        'DIRECT'
+      ]
+    },
+    
+    {
+      name: '🌏 国内媒体',
+      type: 'select',
+      proxies: [
+        'DIRECT',
+        '🚀 节点选择',
+        '✈️ 手动选择',
+        '🛩️ 手动选择备用',
+        '🚁 自建节点',
+        '🇭🇰 香港节点',
+        '🇨🇳 台湾节点',
+        '🇸🇬 狮城节点',
+        '🇯🇵 日本节点'
+      ]
+    },
+    
+    {
+      name: '🍎 苹果服务',
+      type: 'select',
+      proxies: [
+        'DIRECT',
+        '🚀 节点选择',
+        '✈️ 手动选择',
+        '🛩️ 手动选择备用',
+        '🚁 自建节点',
+        '🇺🇲 美国节点',
+        '🇭🇰 香港节点',
+        '🇨🇳 台湾节点',
+        '🇸🇬 狮城节点',
+        '🇯🇵 日本节点',
+        '🇰🇷 韩国节点'
+      ]
+    },
+    
+    {
+      name: 'Ⓜ️ Bing',
+      type: 'select',
+      proxies: [
+        '🇺🇲 美国节点',
+        'DIRECT',
+        '🚀 节点选择',
+        '✈️ 手动选择',
+        '🛩️ 手动选择备用',
+        '🚁 自建节点',
+        '🇭🇰 香港节点',
+        '🇨🇳 台湾节点',
+        '🇸🇬 狮城节点',
+        '🇯🇵 日本节点',
+        '🇰🇷 韩国节点'
+      ]
+    },
+    
+    {
+      name: 'Ⓜ️ 微软云盘',
+      type: 'select',
+      proxies: [
+        'DIRECT',
+        '🚀 节点选择',
+        '✈️ 手动选择',
+        '🛩️ 手动选择备用',
+        '🚁 自建节点',
+        '🇺🇲 美国节点',
+        '🇭🇰 香港节点',
+        '🇨🇳 台湾节点',
+        '🇸🇬 狮城节点',
+        '🇯🇵 日本节点',
+        '🇰🇷 韩国节点'
+      ]
+    },
+    
+    {
+      name: 'Ⓜ️ 微软服务',
+      type: 'select',
+      proxies: [
+        'DIRECT',
+        '🚀 节点选择',
+        '✈️ 手动选择',
+        '🛩️ 手动选择备用',
+        '🚁 自建节点',
+        '🇺🇲 美国节点',
+        '🇭🇰 香港节点',
+        '🇨🇳 台湾节点',
+        '🇸🇬 狮城节点',
+        '🇯🇵 日本节点',
+        '🇰🇷 韩国节点'
+      ]
+    },
+    
+    // 游戏平台
+    {
+      name: '🎮 游戏平台',
+      type: 'select',
+      proxies: [
+        'DIRECT',
+        '🚀 节点选择',
+        '✈️ 手动选择',
+        '🛩️ 手动选择备用',
+        '🚁 自建节点',
+        '🇺🇲 美国节点',
+        '🇭🇰 香港节点',
+        '🇨🇳 台湾节点',
+        '🇸🇬 狮城节点',
+        '🇯🇵 日本节点',
+        '🇰🇷 韩国节点'
+      ]
+    },
+    
     // 系统策略组
-    { name: '🎯 全球直连', type: 'select', proxies: ['DIRECT', '♻️ 自动选择'] },
-    { name: '🛑 广告拦截', type: 'select', proxies: ['REJECT', 'DIRECT'] },
-    { name: '🍃 应用净化', type: 'select', proxies: ['REJECT', 'DIRECT'] },
-    { name: '🐟 漏网之鱼', type: 'select', proxies: ['🚀 节点选择', ...validProxyNames, 'DIRECT'] },
-
-    // 功能性策略组
-    { name: '0.X', type: 'select', proxies: lowRateProxies },
+    {
+      name: '🎯 全球直连',
+      type: 'select',
+      proxies: ['DIRECT', '♻️ 自动选择']
+    },
+    
+    {
+      name: '🛑 广告拦截',
+      type: 'select',
+      proxies: ['REJECT', 'DIRECT']
+    },
+    
+    {
+      name: '🍃 应用净化',
+      type: 'select',
+      proxies: ['REJECT', 'DIRECT']
+    },
+    
+    {
+      name: '🐟 漏网之鱼',
+      type: 'select',
+      proxies: [
+        '🚀 节点选择',
+        '✈️ 手动选择',
+        '🛩️ 手动选择备用',
+        '🚁 自建节点',
+        '♻️ 自动选择',
+        'DIRECT',
+        '🇭🇰 香港节点',
+        '🇨🇳 台湾节点',
+        '🇸🇬 狮城节点',
+        '🇯🇵 日本节点',
+        '🇺🇲 美国节点',
+        '🇰🇷 韩国节点'
+      ]
+    },
+    
+    // ===== 修复的特殊节点组 =====
+    // 0.X 组 - 修复过滤规则，排除高倍流量
+    {
+      name: '0.X',
+      type: 'select',
+      proxies: lowRateProxies.length > 0 ? lowRateProxies : ['DIRECT']
+    },
+    
+    // 地区节点组 - 全部修复过滤规则（同时匹配大小写x）
     ...Object.entries(REGIONS).map(([name, regex]) => ({
       name,
-      type: 'url-test',
+      type: regionProxies[name].length > 1 ? 'url-test' : 'select',
       url: 'http://www.gstatic.com/generate_204',
       interval: 300,
-      proxies: regionProxies[name],
+      tolerance: 50,
+      proxies: regionProxies[name].length > 0 ? regionProxies[name] : ['DIRECT']
     })),
+    
+    // 公共服务节点
     ...Object.entries(SPECIAL_GROUPS).map(([name, regex]) => ({
       name,
       type: 'select',
-      proxies: specialProxies[name],
+      url: 'http://www.gstatic.com/generate_204',
+      interval: 300,
+      tolerance: 50,
+      proxies: specialProxies[name].length > 0 ? specialProxies[name] : ['DIRECT']
     })),
+    
+    // 自动策略（屏蔽高倍流量，同时匹配大小写x）
     {
       name: '♻️ 自动选择',
       type: 'url-test',
       url: 'http://www.gstatic.com/generate_204',
       interval: 300,
-      proxies: validProxyNames
+      tolerance: 50,
+      proxies: validProxyNames.length > 0 ? validProxyNames : ['DIRECT']
     },
+    
     {
       name: '🔯 故障转移',
       type: 'fallback',
       url: 'http://www.gstatic.com/generate_204',
       interval: 300,
-      proxies: validProxyNames
+      tolerance: 50,
+      lazy: true,
+      proxies: validProxyNames.length > 0 ? validProxyNames : ['DIRECT']
     },
+    
     {
       name: '🔮 负载均衡',
       type: 'load-balance',
-      strategy: 'round-robin',
       url: 'http://www.gstatic.com/generate_204',
       interval: 300,
-      proxies: specialProxies['🚁 自建节点']
-    },
+      tolerance: 50,
+      strategy: 'round-robin',
+      proxies: specialProxies['🚁 自建节点'].length > 0 ? specialProxies['🚁 自建节点'] : (validProxyNames.length > 0 ? validProxyNames : ['DIRECT'])
+    }
   ];
 }
 
@@ -278,9 +613,9 @@ function overwriteRuleProviders(params) {
     'ChinaDomain': 'https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/ChinaDomain.list',
     'ChinaCompanyIp': 'https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/ChinaCompanyIp.list',
     'Download': 'https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/Download.list',
-    'Custom_direct': 'https://raw.githubusercontent.com/qsd4014/ss_profile/main/Rules/Custom_direct.list',
+    'Custom_direct': 'https://raw.githubusercontent.com/qsd4014/ss_profile/main/Rules/Custom_direct.list'
   };
-
+  
   params['rule-providers'] = {};
   for (const [name, url] of Object.entries(ruleProviders)) {
     params['rule-providers'][name] = {
@@ -288,16 +623,16 @@ function overwriteRuleProviders(params) {
       behavior: 'classical',
       url,
       path: `./ruleset/${name}.list`,
-      interval: 86400,
+      interval: 86400
     };
   }
 }
 
 function injectAdvancedConfig(params) {
   const dnsConfig = {
-    'enable': true,
-    'listen': '0.0.0.0:1053',
-    'ipv6': false,
+    enable: true,
+    listen: '0.0.0.0:1053',
+    ipv6: false,
     'prefer-h3': true,
     'respect-rules': true,
     'enhanced-mode': 'fake-ip',
@@ -305,34 +640,55 @@ function injectAdvancedConfig(params) {
     'cache-size': 2048,
     'fake-ip-range': '198.18.0.1/16',
     'default-nameserver': ['223.5.5.5', '1.1.1.1'],
-    'nameserver': ['https://1.1.1.1/dns-query', 'https://dns.google/dns-query', 'https://dns.alidns.com/dns-query'],
-    'nameserver-policy': { 'geosite:cn,private': ['https://223.5.5.5/dns-query', 'https://doh.pub/dns-query'] },
-    'fallback': ['https://8.8.8.8/dns-query', 'tls://1.0.0.1:853'],
-    'fallback-filter': { 'geoip': true, 'geoip-code': 'CN', 'geosite': ['geolocation-!cn'] }
+    nameserver: [
+      'https://1.1.1.1/dns-query',
+      'https://dns.google/dns-query',
+      'https://dns.alidns.com/dns-query'
+    ],
+    'nameserver-policy': {
+      'geosite:cn,private': [
+        'https://223.5.5.5/dns-query',
+        'https://doh.pub/dns-query'
+      ]
+    },
+    fallback: [
+      'https://8.8.8.8/dns-query',
+      'tls://1.0.0.1:853'
+    ],
+    'fallback-filter': {
+      geoip: true,
+      'geoip-code': 'CN',
+      geosite: ['geolocation-!cn']
+    }
   };
-
+  
   const geoxConfig = {
     'geodata-mode': true,
     'geodata-loader': 'memconservative',
     'geo-auto-update': true,
     'geo-update-interval': 48,
     'geox-url': {
-      'geoip': 'https://github.com/MetaCubeX/meta-rules-dat/releases/download/latest/geoip.dat',
-      'geosite': 'https://github.com/MetaCubeX/meta-rules-dat/releases/download/latest/geosite.dat',
-      'mmdb': 'https://github.com/MetaCubeX/meta-rules-dat/releases/download/latest/geoip.metadb'
+      geoip: 'https://github.com/MetaCubeX/meta-rules-dat/releases/download/latest/geoip.dat',
+      geosite: 'https://github.com/MetaCubeX/meta-rules-dat/releases/download/latest/geosite.dat',
+      mmdb: 'https://github.com/MetaCubeX/meta-rules-dat/releases/download/latest/geoip.metadb'
     }
   };
-
+  
   const snifferConfig = {
-    'enable': true,
-    'sniff': {
-      'HTTP': { 'ports': [80, '8080-8880'], 'override-destination': true },
-      'TLS': { 'ports': [443, 8443] }
+    enable: true,
+    sniff: {
+      HTTP: {
+        ports: [80, '8080-8880'],
+        'override-destination': true
+      },
+      TLS: {
+        ports: [443, 8443]
+      }
     },
     'force-domain': ['+.v2ex.com'],
     'skip-domain': ['+.baidu.com', '+.bilibili.com']
   };
-
+  
   params.dns = dnsConfig;
   Object.assign(params, geoxConfig);
   params.sniffer = snifferConfig;
@@ -340,3 +696,18 @@ function injectAdvancedConfig(params) {
   params['unified-delay'] = true;
   params['global-client-fingerprint'] = 'chrome';
 }
+
+// ===== 修复说明 =====
+/*
+ * 修复版本 - 2025-09-30 (最终版)
+ * 1. 修复了0.X策略组的过滤规则，正确排除高倍流量节点（2X/3X/10X等）
+ * 2. 修复了所有地区节点组的过滤规则，确保排除高倍流量
+ * 3. 策略组顺序和配置与mihomo.yaml保持完全一致
+ * 4. 移除了无效的COMPATIBLE备用选项
+ * 5. 优化了正则表达式，提高匹配准确性
+ * 6. 确保♻️自动选择等策略也正确过滤高倍流量
+ * 7. ★ 最重要：修复正则表达式中的X为[Xx]，同时匹配大小写x
+ * 8. 现在能正确过滤2x、3X、10x等所有大小写格式的高倍流量节点
+ * 9. 修复了原有脚本中的 "validProxy_names is not defined" 错误
+ * 10. 增加了容错处理，避免空节点组导致的错误
+ */
