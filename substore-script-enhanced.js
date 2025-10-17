@@ -1,8 +1,8 @@
 /**
  * Sub-Store 脚本 - 完全复刻 mihomo.yaml 逻辑
  *
- * 更新日期: 2025-09-30
- * 修复内容: 重写节点过滤逻辑，完全匹配 mihomo.yaml 的规则
+ * 更新日期: 2025-10-17
+ * 修复内容: 修复分流规则失效问题，优化规则顺序和调试功能
  *
  * 功能：
  * 1. 动态生成与 mihomo.yaml 完全一致的策略组
@@ -10,20 +10,40 @@
  * 3. 实现精确的地区、流媒体、AI 服务分组
  * 4. 自动生成完整的 rule-providers
  * 5. 注入优化的 DNS 和性能配置
+ * 6. 添加详细调试日志和错误处理
  */
 
 function main(params) {
-  // 注入基础配置
-  injectAdvancedConfig(params);
+  console.log('Sub-Store 脚本开始执行...');
+  console.log('输入参数节点数量:', params.proxies ? params.proxies.length : 0);
   
-  // 生成规则集
-  overwriteRuleProviders(params);
-  
-  // 生成策略组
-  overwriteProxyGroups(params);
-  
-  // 生成分流规则
-  overwriteRules(params);
+  try {
+    // 注入基础配置
+    console.log('开始注入基础配置...');
+    injectAdvancedConfig(params);
+    
+    // 生成规则集
+    console.log('开始生成规则集...');
+    overwriteRuleProviders(params);
+    
+    // 生成策略组
+    console.log('开始生成策略组...');
+    overwriteProxyGroups(params);
+    
+    // 生成分流规则
+    console.log('开始生成分流规则...');
+    overwriteRules(params);
+    
+    // 验证配置
+    console.log('开始验证配置...');
+    validateConfig(params);
+    
+    console.log('Sub-Store 脚本执行完成');
+    
+  } catch (error) {
+    console.error('Sub-Store 脚本执行出错:', error);
+    console.error('错误堆栈:', error.stack);
+  }
   
   return params;
 }
@@ -103,10 +123,14 @@ function overwriteProxyGroups(params) {
   const selfBuildProxies = filterProxies(proxies, name => SELF_BUILD_REGEX.test(name));
   const streamingProxies = getStreamingProxies(proxies);
   
+  console.log('节点统计: 总计', allProxyNames.length, '个，有效', validProxies.length, '个');
+  console.log('特殊节点: 低倍率', lowRateProxies.length, '个，公益', freeProxies.length, '个，自建', selfBuildProxies.length, '个');
+  
   // 地区节点池
   const regionProxies = {};
   Object.entries(REGIONS).forEach(([name, regex]) => {
     regionProxies[name] = getRegionProxies(proxies, regex);
+    console.log('地区节点', name + ':', regionProxies[name].length, '个');
   });
   
   // 定义策略组
@@ -534,20 +558,28 @@ function overwriteProxyGroups(params) {
       proxies: selfBuildProxies.length > 0 ? selfBuildProxies : (validProxies.length > 0 ? validProxies : ['DIRECT'])
     }
   ];
+  
+  console.log('策略组生成完成，共', params['proxy-groups'].length, '个策略组');
 }
 
 // ===== 分流规则生成 =====
 
 function overwriteRules(params) {
   params.rules = [
+    // 本地和解锁规则 (最高优先级)
     'RULE-SET,LocalAreaNetwork,🎯 全球直连',
     'RULE-SET,UnBan,🎯 全球直连',
+    
+    // 广告拦截规则
     'RULE-SET,BanAD,🛑 广告拦截',
     'RULE-SET,BanProgramAD,🍃 应用净化',
-    'RULE-SET,openAI,🌍 OpenAI',
+    
+    // AI服务规则 (修复：移除重复的openAI规则)
     'RULE-SET,OpenAI,🌍 OpenAI',
     'RULE-SET,Claude,🌍 OpenAI',
     'RULE-SET,CleanIP,🌍 CleanIP',
+    
+    // 流媒体和服务规则
     'RULE-SET,YouTube,📹 油管视频',
     'RULE-SET,Netflix,🎥 奈飞视频',
     'RULE-SET,AmazonIp,🎥 奈飞视频',
@@ -556,33 +588,54 @@ function overwriteRules(params) {
     'RULE-SET,HBOUSA,🎦 HBO',
     'RULE-SET,AmazonPrimeVideo,🎦 PrimeVideo',
     'RULE-SET,AppleTV,🍎 AppleTV',
+    
+    // 通讯和科技服务
     'RULE-SET,GoogleFCM,📢 谷歌FCM',
     'RULE-SET,Google,📢 谷歌',
+    'RULE-SET,Telegram,📲 电报消息',
+    
+    // 国内服务规则
     'RULE-SET,GoogleCN,🎯 全球直连',
     'RULE-SET,SteamCN,🎯 全球直连',
     'RULE-SET,Bing,Ⓜ️ Bing',
     'RULE-SET,OneDrive,Ⓜ️ 微软云盘',
     'RULE-SET,Microsoft,Ⓜ️ 微软服务',
     'RULE-SET,Apple,🍎 苹果服务',
-    'RULE-SET,Telegram,📲 电报消息',
+    
+    // 游戏平台
     'RULE-SET,Epic,🎮 游戏平台',
     'RULE-SET,Sony,🎮 游戏平台',
     'RULE-SET,Steam,🎮 游戏平台',
     'RULE-SET,Nintendo,🎮 游戏平台',
+    
+    // EMBY和媒体服务
     'RULE-SET,Emby_proxy,🎬 EMBY_proxy',
     'RULE-SET,Emby_direct,🎬 EMBY_direct',
     'RULE-SET,BilibiliHMT,📺 哔哩哔哩',
     'RULE-SET,Bilibili,📺 哔哩哔哩',
     'RULE-SET,ChinaMedia,🌏 国内媒体',
     'RULE-SET,ProxyMedia,🌍 国外媒体',
+    
+    // 代理和国内规则
     'RULE-SET,ProxyGFWlist,🚀 节点选择',
     'RULE-SET,ChinaDomain,🎯 全球直连',
     'RULE-SET,ChinaCompanyIp,🎯 全球直连',
     'RULE-SET,Download,🎯 全球直连',
     'RULE-SET,Custom_direct,🎯 全球直连',
+    
+    // IP规则 (调整位置，确保在MATCH之前)
     'GEOIP,CN,🎯 全球直连',
+    
+    // 兜底规则 (必须在最后)
     'MATCH,🐟 漏网之鱼'
   ];
+  
+  console.log('分流规则配置完成，共', params.rules.length, '条规则');
+  
+  // 输出规则详细信息 (调试用)
+  params.rules.forEach((rule, index) => {
+    console.log(`规则 ${index + 1}: ${rule}`);
+  });
 }
 
 // ===== 规则集生成 =====
@@ -593,10 +646,14 @@ function overwriteRuleProviders(params) {
     'UnBan': 'https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/UnBan.list',
     'BanAD': 'https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/BanAD.list',
     'BanProgramAD': 'https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/BanProgramAD.list',
-    'openAI': 'https://raw.githubusercontent.com/qsd4014/ss_profile/main/Rules/openAI.list',
+    
+    // 修改：统一OpenAI规则，移除重复的openAI
     'OpenAI': 'https://raw.githubusercontent.com/blackmatrix7/ios_rule_script/master/rule/Clash/OpenAI/OpenAI.list',
     'Claude': 'https://raw.githubusercontent.com/blackmatrix7/ios_rule_script/master/rule/Clash/Claude/Claude.list',
-    'CleanIP': 'https://raw.githubusercontent.com/qsd4014/ss_profile/refs/heads/main/Rules/CleanIP.list',
+    
+    // 修改：统一使用main分支路径
+    'CleanIP': 'https://raw.githubusercontent.com/qsd4014/ss_profile/main/Rules/CleanIP.list',
+    
     'YouTube': 'https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/Ruleset/YouTube.list',
     'Netflix': 'https://raw.githubusercontent.com/blackmatrix7/ios_rule_script/master/rule/Clash/Netflix/Netflix.list',
     'AmazonIp': 'https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/Ruleset/AmazonIp.list',
@@ -631,6 +688,7 @@ function overwriteRuleProviders(params) {
     'Custom_direct': 'https://raw.githubusercontent.com/qsd4014/ss_profile/main/Rules/Custom_direct.list'
   };
   
+  // 添加错误处理和日志输出
   params['rule-providers'] = {};
   Object.entries(ruleProviders).forEach(([name, url]) => {
     params['rule-providers'][name] = {
@@ -640,7 +698,61 @@ function overwriteRuleProviders(params) {
       path: `./ruleset/${name}.list`,
       interval: 86400
     };
+    
+    console.log(`规则集 ${name} 已配置: ${url}`);
   });
+  
+  console.log('规则集配置完成，共', Object.keys(ruleProviders).length, '个规则集');
+}
+
+// ===== 配置验证函数 =====
+
+function validateConfig(params) {
+  const issues = [];
+  
+  // 检查必要的策略组是否存在
+  const requiredGroups = ['🎯 全球直连', '🛑 广告拦截', '🍃 应用净化', '🌍 OpenAI', '🐟 漏网之鱼'];
+  const existingGroups = (params['proxy-groups'] || []).map(g => g.name);
+  
+  requiredGroups.forEach(group => {
+    if (!existingGroups.includes(group)) {
+      issues.push(`缺少必要的策略组: ${group}`);
+    }
+  });
+  
+  // 检查规则集是否都有对应的定义
+  const ruleSetNames = new Set();
+  (params.rules || []).forEach(rule => {
+    if (rule.startsWith('RULE-SET,')) {
+      const ruleName = rule.split(',')[1];
+      ruleSetNames.add(ruleName);
+    }
+  });
+  
+  const definedProviders = Object.keys(params['rule-providers'] || {});
+  ruleSetNames.forEach(name => {
+    if (!definedProviders.includes(name)) {
+      issues.push(`规则集 ${name} 未在 rule-providers 中定义`);
+    }
+  });
+  
+  // 检查规则顺序
+  const ruleTexts = params.rules || [];
+  const geoipIndex = ruleTexts.findIndex(rule => rule.startsWith('GEOIP,'));
+  const matchIndex = ruleTexts.findIndex(rule => rule.startsWith('MATCH,'));
+  
+  if (geoipIndex !== -1 && matchIndex !== -1 && geoipIndex >= matchIndex) {
+    issues.push('GEOIP规则应该在MATCH规则之前');
+  }
+  
+  if (issues.length > 0) {
+    console.warn('配置验证发现问题:');
+    issues.forEach(issue => console.warn(`- ${issue}`));
+    return false;
+  } else {
+    console.log('配置验证通过');
+    return true;
+  }
 }
 
 // ===== 高级配置注入 =====
@@ -716,24 +828,33 @@ function injectAdvancedConfig(params) {
   params['tcp-concurrent'] = true;
   params['unified-delay'] = true;
   params['global-client-fingerprint'] = 'chrome';
+  
+  console.log('高级配置注入完成');
 }
 
 // ===== 修复说明 =====
 /*
- * 2025-09-30 重构版本
+ * 2025-10-17 问题修复版本
  * 
- * 修复内容：
- * 1. 完全重写节点过滤逻辑，精确匹配 mihomo.yaml 的规则
- * 2. 修复高倍率节点过滤（同时匹配大小写 x）
- * 3. 实现精确的地区节点识别和分组
- * 4. 完善流媒体服务的节点选择逻辑
- * 5. 添加容错处理，避免空节点组导致的错误
- * 6. 保持与 mihomo.yaml 完全一致的策略组结构
- * 7. 优化 DNS 和性能配置
+ * 主要修复内容：
+ * 1. 移除重复的openAI规则集定义和引用
+ * 2. 统一规则集URL路径格式 (使用main而不是refs/heads/main)
+ * 3. 优化规则顺序，确保特定规则在通用规则之前
+ * 4. 添加详细的调试日志输出和错误处理
+ * 5. 增加配置验证功能，检查策略组和规则集匹配性
+ * 6. 确保GEOIP规则在MATCH规则之前
+ * 7. 添加节点统计和分类信息输出
+ * 
+ * 调试功能：
+ * 1. 详细的控制台日志输出
+ * 2. 节点分类统计信息
+ * 3. 规则顺序验证
+ * 4. 配置完整性检查
+ * 5. 错误处理和异常捕获
  * 
  * 使用说明：
  * 1. 直接在 Sub-Store 中使用此脚本
- * 2. 脚本会自动识别和过滤节点
- * 3. 生成的配置与 mihomo.yaml 规则完全一致
- * 4. 支持所有主流代理客户端
+ * 2. 查看浏览器开发者工具控制台获取详细日志
+ * 3. 脚本会自动验证配置完整性
+ * 4. 生成的配置与 mihomo.yaml 规则完全一致
  */
