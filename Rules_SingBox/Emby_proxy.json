@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "rules": [
+    {
+      "domain_keyword": [
+        "emby.wtf",
+        "embysg.sdserver",
+        "jmsooo.com",
+        "misty",
+        "cf.xmsl.org",
+        "lite.cn2gias.uk"
+      ]
+    },
+    {
+      "domain_suffix": [
+        "loseremby.org"
+      ]
+    }
+  ]
+}

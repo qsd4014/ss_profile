@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "rules": [
+    {
+      "domain_keyword": [
+        "openai",
+        "chatgpt.com",
+        "claude.ai",
+        "copilot.microsoft.com",
+        "coze.com",
+        "deeplx.missuo.ru"
+      ]
+    }
+  ]
+}
