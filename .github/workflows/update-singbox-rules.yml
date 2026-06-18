@@ -1,0 +1,36 @@
+name: Update sing-box rules
+
+on:
+  push:
+    paths:
+      - "Rules/**"
+      - "scripts/update_singbox_rules.py"
+      - ".github/workflows/update-singbox-rules.yml"
+  schedule:
+    - cron: "0 20 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+
+      - name: Generate sing-box rules
+        run: python scripts/update_singbox_rules.py
+
+      - name: Commit generated rules
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "chore: update sing-box rules"
+          file_pattern: Rules_SingBox/*.json
