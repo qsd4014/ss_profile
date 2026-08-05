@@ -48,7 +48,7 @@ geox-url:
   asn: "https://github.com/xishang0128/geoip/releases/download/latest/GeoLite2-ASN.mmdb"
 
 external-controller: 0.0.0.0:9095
-secret: "9V26Mzb7v3jsjZgDXWGgbkmG1XDjs5wb"
+secret: "random-secret"
 external-ui: "/etc/openclash/run/ui"
 external-ui-url: "https://github.com/MetaCubeX/metacubexd/archive/refs/heads/gh-pages.zip"
 external-controller-cors:
