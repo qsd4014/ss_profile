@@ -1,0 +1,657 @@
+provider-template: &provider-template
+  type: http
+  proxy: DIRECT
+  interval: 3600
+  health-check:
+    enable: true
+    url: https://www.gstatic.com/generate_204
+    interval: 600
+    lazy: true
+
+proxy-providers:
+  # 1. 主订阅
+  subscription_main:
+    <<: *provider-template
+    url: "一号地址"
+  #  override:
+  #    additional-prefix: "[主]"
+    exclude-filter: "(?i)落地"
+
+  # 2. 落地专用订阅
+  subscription_landing:
+    <<: *provider-template
+    url: "落地地址"
+    override:
+      additional-prefix: "[链式]"
+      dialer-proxy: "↔️ 中转节点"
+    filter: "(?i)落地"
+
+  # 3. 免费节点订阅
+  subscription_free:
+    <<: *provider-template
+    url: "免费地址"
+    override:
+      additional-prefix: "[Free]"
+
+mode: rule
+port: 7890
+socks-port: 7891
+mixed-port: 7892
+redir-port: 7893
+tproxy-port: 7894
+ipv6: true
+allow-lan: true
+unified-delay: true
+tcp-concurrent: true
+log-level: info
+
+geodata-mode: false
+geodata-loader: standard
+geo-auto-update: true
+geo-update-interval: 48
+geox-url:
+  geoip: "https://testingcf.jsdelivr.net/gh/MetaCubeX/meta-rules-dat@release/geoip.dat"
+  geosite: "https://testingcf.jsdelivr.net/gh/MetaCubeX/meta-rules-dat@release/geosite.dat"
+  mmdb: "https://testingcf.jsdelivr.net/gh/MetaCubeX/meta-rules-dat@release/country.mmdb"
+  asn: "https://github.com/xishang0128/geoip/releases/download/latest/GeoLite2-ASN.mmdb"
+
+external-controller: 0.0.0.0:9095
+secret: "random-secret"
+external-ui: "/etc/openclash/run/ui"
+external-ui-url: "https://github.com/MetaCubeX/metacubexd/archive/refs/heads/gh-pages.zip"
+external-controller-cors:
+  allow-private-network: true
+  allow-origins:
+    - "*"
+
+find-process-mode: "off"
+global-client-fingerprint: firefox
+keep-alive-idle: 60
+keep-alive-interval: 30
+
+profile:
+  store-selected: true
+  store-fake-ip: true
+
+sniffer:
+  enable: true
+  sniff:
+    HTTP:
+      ports:
+        - 80
+        - 8080-8880
+      override-destination: true
+    TLS:
+      ports:
+        - 443
+        - 8443
+    QUIC:
+      ports:
+        - 443
+        - 8443
+  force-domain:
+    - "+.v2ex.com"
+  skip-domain:
+    - "+.mi.com"
+
+tun:
+  enable: false
+  stack: mixed
+  mtu: 9000
+  dns-hijack:
+    - any:53
+  auto-route: true
+  auto-redirect: true
+  auto-detect-interface: true
+  strict-route: false
+
+dns:
+  enable: true
+  ipv6: true
+  prefer-h3: true
+  listen: 0.0.0.0:1053
+  respect-rules: false
+  enhanced-mode: fake-ip
+  fake-ip-range: 198.18.0.1/16
+  fake-ip-filter-mode: blacklist
+  fake-ip-filter:
+    - "+.stun.*.*"
+    - "+.stun.*.*.*"
+    - "+.stuns.*.*"
+    - "+.stuns.*.*.*"
+    - "+.wns.windows.com"
+    - "+.msftncsi.com"
+    - "+.msftconnecttest.com"
+    - "rule-set:private_domain,cn_domain"
+  nameserver-policy:
+    rule-set:private_domain,cn_domain:
+      - https://dns.alidns.com/dns-query
+      - https://doh.pub/dns-query
+  nameserver:
+    - quic://223.5.5.5
+    - https://cloudflare-dns.com/dns-query
+    - https://dns.google/dns-query
+
+# --- 模板定义 ---
+proxy-templates: &proxy-templates
+  type: select
+  proxies:
+    - 🔰 低倍率优选
+    - 🧩 Snippets
+    - 🆓 Free 自动
+    - 🆓 Free
+    - 🇺🇸 美国
+    - 🇺🇸 美国自动
+    - 🇭🇰 香港
+    - 🇭🇰 香港自动
+    - 🇯🇵 日本
+    - 🇹🇼 台湾
+    - 🇸🇬 新加坡
+    - 🏠️ 家宽ISP
+    - ✈️ 手动选择
+    - DIRECT
+
+proxy-groups:
+  - name: "🚀 节点选择"
+    type: select
+    proxies:
+      - 🎥 Emby 代理
+      - 🤖 AI
+      - 🧩 Snippets
+      - 🆓 Free 自动
+      - 🆓 Free
+      - ♻️ 自动选择
+      - 🔰 低倍率优选
+      - 🇺🇸 美国
+      - 🇺🇸 美国自动
+      - 🇭🇰 香港
+      - 🇭🇰 香港自动
+      - 🇯🇵 日本
+      - 🇹🇼 台湾
+      - 🇸🇬 新加坡
+      - ✈️ 手动选择
+      - DIRECT
+
+  - name: "✈️ 手动选择"
+    type: select
+    use:
+      - subscription_main
+    exclude-filter: "(?=.*?(流量|剩余|期|company-network)).*$"
+
+  - name: "♻️ 自动选择"
+    type: url-test
+    use:
+      - subscription_main
+    interval: 300
+    tolerance: 100
+    exclude-filter: "(?i)(落地|家宽|home|流量|剩余|到期|过期|company-network|1\\.[1-9]x|[2-9](\\.\\d+)?x|\\d{2,}x)"
+
+  - name: "🔰 低倍率优选"
+    type: select
+    proxies:
+      - 🆓 Free 自动
+      - 🆓 Free
+    use:
+      - subscription_main
+    filter: "(?i)(CF|WARP|0\\.\\d+x|直连|my|Snippets)"
+    exclude-filter: "(?i)(home|家宽|(^|[^0-9\\.])([1-9]\\d*(\\.\\d+)?x))"
+
+  - name: "🧩 Snippets"
+    type: url-test
+    use:
+      - subscription_main
+    filter: "(?i)(Snippets|cf|wrapper)"
+    tolerance: 300
+    interval: 300
+
+  - name: "🆓 Free"
+    type: select
+    use:
+      - subscription_free
+
+  - name: "🆓 Free 自动"
+    type: url-test
+    use:
+      - subscription_free
+    tolerance: 100
+    interval: 300
+
+  # --- 链式代理 ---
+
+  - name: "↔️ 中转节点"
+    type: select
+    proxies:
+      - 🚀 节点选择
+      - 🇭🇰 香港
+      - 🇭🇰 香港自动
+      - 🇸🇬 新加坡
+      - 🇺🇸 美国
+      - 🇺🇸 美国自动
+      - 🇯🇵 日本
+      - 🇹🇼 台湾
+
+  - name: "🏠️ 家宽ISP"
+    type: select
+    use:
+      - subscription_landing
+
+  - name: "🐟 漏网之鱼"
+    type: select
+    proxies:
+      - 🚀 节点选择
+      - 🔰 低倍率优选
+      - 🧩 Snippets
+      - 🆓 Free 自动
+      - 🆓 Free
+      - 🇺🇸 美国
+      - 🇺🇸 美国自动
+      - 🇭🇰 香港
+      - 🇭🇰 香港自动
+      - 🇯🇵 日本
+      - 🇹🇼 台湾
+      - 🇸🇬 新加坡
+      - 🏠️ 家宽ISP
+      - ✈️ 手动选择
+      - DIRECT
+
+  # --- 地区策略 ---
+
+  - name: "🇺🇸 美国"
+    type: select
+    use:
+      - subscription_main
+    filter: "(?=.*?(美国|美|美利坚|US|USA|(?i)States|(?i)America)).*$"
+
+  - name: "🇺🇸 美国自动"
+    type: url-test
+    use:
+      - subscription_main
+    tolerance: 200
+    interval: 300
+    filter: "(?=.*?(美国|美|美利坚|US|USA|(?i)States|(?i)America)).*$"
+    exclude-filter: "(?i)(1\\.[1-9]x|[2-9](\\.\\d+)?x|\\d{2,}x)"
+
+  - name: "🇭🇰 香港"
+    type: select
+    use:
+      - subscription_main
+    filter: "(?=.*?(香港|港|HK|Hong Kong|Hongkong|HKSAR)).*$"
+
+  - name: "🇭🇰 香港自动"
+    type: url-test
+    use:
+      - subscription_main
+    tolerance: 100
+    interval: 300
+    filter: "(?=.*?(香港|港|HK|Hong Kong|Hongkong|HKSAR)).*$"
+    exclude-filter: "(?i)(1\\.[1-9]x|[2-9](\\.\\d+)?x|\\d{2,}x)"
+
+  - name: "🇯🇵 日本"
+    type: select
+    use:
+      - subscription_main
+    filter: "(?=.*?(日本|日|Japan|Nippon|JP|Japanese)).*$"
+
+  - name: "🇹🇼 台湾"
+    type: select
+    use:
+      - subscription_main
+    filter: "(?=.*?(台湾|台|Taiwan|TW|ROC|Republic of China|Chinese Taipei)).*$"
+
+  - name: "🇸🇬 新加坡"
+    type: select
+    use:
+      - subscription_main
+    filter: "(?=.*?(新加坡|新|Singapore|SG|Singapura)).*$"
+
+  # --- 应用策略 ---
+
+  - name: "🤖 AI"
+    type: select
+    proxies:
+      - 🏠️ 家宽ISP
+      - 🇺🇸 美国
+      - 🇺🇸 美国自动
+
+  - name: "📦 Github"
+    <<: *proxy-templates
+
+  - name: "🔍 Bing"
+    <<: *proxy-templates
+
+  - name: "🌐 Google"
+    type: select
+    proxies:
+      - 🇺🇸 美国自动
+      - 🇺🇸 美国
+      - 🔰 低倍率优选
+      - 🧩 Snippets
+      - ♻️ 自动选择
+      - ✈️ 手动选择
+      - DIRECT
+
+  - name: "▶️ YouTube"
+    <<: *proxy-templates
+
+  - name: "📺 Netflix"
+    type: select
+    proxies:
+      - 🇸🇬 新加坡
+      - 🇺🇸 美国自动
+      - 🇺🇸 美国
+      - 🔰 低倍率优选
+      - 🧩 Snippets
+      - 🚀 节点选择
+      - ♻️ 自动选择
+      - ✈️ 手动选择
+      - DIRECT
+
+  - name: "📹 Disney+"
+    type: select
+    proxies:
+      - 🇸🇬 新加坡
+      - 🇺🇸 美国自动
+      - 🇺🇸 美国
+      - 🔰 低倍率优选
+      - 🧩 Snippets
+      - 🚀 节点选择
+      - ♻️ 自动选择
+      - ✈️ 手动选择
+      - DIRECT
+
+  - name: "🍎 AppleTV"
+    type: select
+    proxies:
+      - DIRECT
+      - 🔰 低倍率优选
+      - 🚀 节点选择
+      - 🧩 Snippets
+      - 🇺🇸 美国
+      - 🇭🇰 香港
+      - 🇯🇵 日本
+
+  - name: "🍎 Apple"
+    type: select
+    proxies:
+      - DIRECT
+      - 🔰 低倍率优选
+      - 🚀 节点选择
+      - 🇺🇸 美国
+      - 🇭🇰 香港
+      - 🇯🇵 日本
+  # --- 常规应用 ---
+
+  - name: "🎥 bilibili"
+    <<: *proxy-templates
+    # Sing-box里B站一般指国际版或港澳台，所以可以默认选直连或香港
+    proxies:
+      - DIRECT
+      - 🇭🇰 香港
+      - 🇹🇼 台湾
+
+  - name: "🎬 TikTok"
+    <<: *proxy-templates
+
+  - name: "💬 X"
+    <<: *proxy-templates
+
+  - name: "🧑‍🤝‍🧑 FaceBook"
+    <<: *proxy-templates
+
+  - name: "✈️ Telegram"
+    <<: *proxy-templates
+
+  - name: "Ⓜ️ Microsoft"
+    <<: *proxy-templates
+
+  - name: "🎥 Emby 直连"
+    type: select
+    proxies:
+      - DIRECT
+      - 🚀 节点选择
+      - 🔰 低倍率优选
+      - 🆓 Free 自动
+      - 🆓 Free
+      - 🧩 Snippets
+      - ✈️ 手动选择
+
+  - name: "🎥 Emby 代理"
+    type: select
+    proxies:
+      - 🔰 低倍率优选
+      - 🆓 Free 自动
+      - 🆓 Free
+      - 🧩 Snippets
+      - 🚀 节点选择
+      - ✈️ 手动选择
+      - DIRECT
+
+  - name: "🎮 游戏平台"
+    type: select
+    proxies:
+      - 🔰 低倍率优选
+      - 🚀 节点选择
+      - ♻️ 自动选择
+      - ✈️ 手动选择
+      - 🇺🇸 美国自动
+      - 🇺🇸 美国
+      - 🇭🇰 香港自动
+      - 🇭🇰 香港
+      - 🇯🇵 日本
+      - DIRECT
+
+  # --- 其他策略 ---
+
+  - name: "💬 LinuxDo"
+    <<: *proxy-templates
+
+  - name: "🛑 广告拦截"
+    type: select
+    proxies:
+      - REJECT
+      - DIRECT
+
+rules:
+  # 1. 手动覆盖
+  - DOMAIN-SUFFIX,linux.do,💬 LinuxDo
+  - RULE-SET,custom_direct,DIRECT
+
+  # 2. 基础保护与广告
+  - RULE-SET,private_domain,DIRECT
+  - RULE-SET,private_ip,DIRECT,no-resolve
+  - RULE-SET,ads_domain,🛑 广告拦截
+
+  # 3. 明确的国内直连
+  - RULE-SET,taobao_domain,DIRECT
+  - RULE-SET,jd_domain,DIRECT
+  - RULE-SET,pinduoduo_domain,DIRECT
+  - RULE-SET,alibaba_ip,DIRECT,no-resolve
+  - RULE-SET,tencent_ip,DIRECT,no-resolve
+  - RULE-SET,games_cn,DIRECT
+
+  # 4. 专用应用策略
+  - RULE-SET,emby_direct,🎥 Emby 直连
+  - RULE-SET,emby_proxy,🎥 Emby 代理
+  - RULE-SET,github_domain,📦 Github
+  - RULE-SET,ai_chat_domain,🤖 AI
+  - RULE-SET,telegram_domain,✈️ Telegram
+  - RULE-SET,telegram_ip,✈️ Telegram
+  - RULE-SET,facebook_domain,🧑‍🤝‍🧑 FaceBook
+  - RULE-SET,facebook_ip,🧑‍🤝‍🧑 FaceBook
+  - RULE-SET,twitter_domain,💬 X
+  - RULE-SET,tiktok_domain,🎬 TikTok
+  - RULE-SET,bilibili_domain,🎥 bilibili
+  - RULE-SET,disney_domain,📹 Disney+
+  - RULE-SET,netflix_domain,📺 Netflix
+  - RULE-SET,netflix_ip,📺 Netflix,no-resolve
+  - RULE-SET,appletv_domain,🍎 AppleTV
+  - RULE-SET,youtube_domain,▶️ YouTube
+  - RULE-SET,google_domain,🌐 Google
+  - RULE-SET,google_ip,🌐 Google,no-resolve
+  - RULE-SET,bing_domain,🔍 Bing
+  - RULE-SET,microsoft_domain,Ⓜ️ Microsoft
+  - RULE-SET,apple_domain,🍎 Apple
+
+  # 5. 国际游戏平台
+  - RULE-SET,steam_domain,🎮 游戏平台
+  - RULE-SET,epic_domain,🎮 游戏平台
+  - RULE-SET,blizzard_domain,🎮 游戏平台
+  - RULE-SET,ea_domain,🎮 游戏平台
+  - RULE-SET,nintendo_domain,🎮 游戏平台
+
+  # 6. 宽泛的中国域名/IP规则
+  - RULE-SET,cn_domain,DIRECT
+  - RULE-SET,cn_ip,DIRECT,no-resolve
+
+  # 7. 兜底
+  - MATCH,🐟 漏网之鱼
+
+rule-templates:
+  ip-template: &ip
+    type: http
+    interval: 86400
+    behavior: ipcidr
+    format: mrs
+  domain-template: &domain
+    type: http
+    interval: 86400
+    behavior: domain
+    format: mrs
+  list-template: &list-rule
+    type: http
+    interval: 86400
+    behavior: classical
+    format: text
+
+rule-providers:
+  # --- 基础规则 ---
+  private_ip:
+    <<: *ip
+    url: "https://github.com/MetaCubeX/meta-rules-dat/raw/refs/heads/meta/geo/geoip/private.mrs"
+  private_domain:
+    <<: *domain
+    url: "https://github.com/MetaCubeX/meta-rules-dat/raw/refs/heads/meta/geo/geosite/private.mrs"
+  cn_ip:
+    <<: *ip
+    url: "https://github.com/MetaCubeX/meta-rules-dat/raw/refs/heads/meta/geo/geoip/cn.mrs"
+  cn_domain:
+    <<: *domain
+    url: "https://github.com/MetaCubeX/meta-rules-dat/raw/refs/heads/meta/geo/geosite/cn.mrs"
+  ads_domain:
+    <<: *domain
+    url: "https://github.com/MetaCubeX/meta-rules-dat/raw/refs/heads/meta/geo/geosite/category-ads-all.mrs"
+
+  # --- 自定义 Emby ---
+  emby_direct:
+    <<: *list-rule
+    url: "https://raw.githubusercontent.com/qsd4014/ss_profile/refs/heads/main/Rules/Emby_direct.list"
+  emby_proxy:
+    <<: *list-rule
+    url: "https://raw.githubusercontent.com/qsd4014/ss_profile/refs/heads/main/Rules/Emby_proxy.list"
+  custom_direct:
+    <<: *list-rule
+    url: "https://raw.githubusercontent.com/qsd4014/ss_profile/refs/heads/main/Rules/Custom_direct.list"
+
+  # --- AI (聚合) ---
+  ai_chat_domain:
+    <<: *domain
+    # 包含 OpenAI, Claude, Gemini, Perplexity, Copilot 等
+    url: "https://github.com/MetaCubeX/meta-rules-dat/raw/refs/heads/meta/geo/geosite/category-ai-chat-!cn.mrs"
+
+  # --- 社交 (新增) ---
+  tiktok_domain:
+    <<: *domain
+    url: "https://github.com/MetaCubeX/meta-rules-dat/raw/refs/heads/meta/geo/geosite/tiktok.mrs"
+  twitter_domain:
+    <<: *domain
+    url: "https://github.com/MetaCubeX/meta-rules-dat/raw/refs/heads/meta/geo/geosite/twitter.mrs"
+  facebook_domain:
+    <<: *domain
+    url: "https://github.com/MetaCubeX/meta-rules-dat/raw/refs/heads/meta/geo/geosite/facebook.mrs"
+  facebook_ip:
+    <<: *ip
+    url: "https://github.com/MetaCubeX/meta-rules-dat/raw/refs/heads/meta/geo/geoip/facebook.mrs"
+  telegram_domain:
+    <<: *domain
+    url: "https://github.com/MetaCubeX/meta-rules-dat/raw/refs/heads/meta/geo/geosite/telegram.mrs"
+  telegram_ip:
+    <<: *ip
+    url: "https://github.com/MetaCubeX/meta-rules-dat/raw/refs/heads/meta/geo/geoip/telegram.mrs"
+
+  # --- 媒体 (新增/保留) ---
+  bilibili_domain:
+    <<: *domain
+    url: "https://github.com/MetaCubeX/meta-rules-dat/raw/refs/heads/meta/geo/geosite/bilibili.mrs"
+  youtube_domain:
+    <<: *domain
+    url: "https://github.com/MetaCubeX/meta-rules-dat/raw/refs/heads/meta/geo/geosite/youtube.mrs"
+  netflix_domain:
+    <<: *domain
+    url: "https://github.com/MetaCubeX/meta-rules-dat/raw/refs/heads/meta/geo/geosite/netflix.mrs"
+  netflix_ip:
+    <<: *ip
+    url: "https://github.com/MetaCubeX/meta-rules-dat/raw/refs/heads/meta/geo/geoip/netflix.mrs"
+  disney_domain:
+    <<: *domain
+    url: "https://github.com/MetaCubeX/meta-rules-dat/raw/refs/heads/meta/geo/geosite/disney.mrs"
+
+  # --- 其他工具 ---
+  github_domain:
+    <<: *domain
+    url: "https://github.com/MetaCubeX/meta-rules-dat/raw/refs/heads/meta/geo/geosite/github.mrs"
+  bing_domain:
+    <<: *domain
+    url: "https://github.com/MetaCubeX/meta-rules-dat/raw/refs/heads/meta/geo/geosite/bing.mrs"
+  microsoft_domain:
+    <<: *domain
+    url: "https://github.com/MetaCubeX/meta-rules-dat/raw/refs/heads/meta/geo/geosite/microsoft.mrs"
+  google_domain:
+    <<: *domain
+    url: "https://github.com/MetaCubeX/meta-rules-dat/raw/refs/heads/meta/geo/geosite/google.mrs"
+  google_ip:
+    <<: *ip
+    url: "https://github.com/MetaCubeX/meta-rules-dat/raw/refs/heads/meta/geo/geoip/google.mrs"
+  appletv_domain:
+    <<: *list-rule
+    url: "https://raw.githubusercontent.com/blackmatrix7/ios_rule_script/master/rule/Clash/AppleTV/AppleTV.yaml"
+    behavior: classical
+    format: yaml
+  apple_domain:
+    <<: *domain
+    url: "https://github.com/MetaCubeX/meta-rules-dat/raw/refs/heads/meta/geo/geosite/apple.mrs"
+  # --- 新增：国内电商平台 ---
+  taobao_domain:
+    <<: *domain
+    url: "https://github.com/MetaCubeX/meta-rules-dat/raw/refs/heads/meta/geo/geosite/taobao.mrs"
+  jd_domain:
+    <<: *domain
+    url: "https://github.com/MetaCubeX/meta-rules-dat/raw/refs/heads/meta/geo/geosite/jd.mrs"
+  pinduoduo_domain:
+    <<: *domain
+    url: "https://github.com/MetaCubeX/meta-rules-dat/raw/refs/heads/meta/geo/geosite/pinduoduo.mrs"
+  alibaba_ip:
+    <<: *ip
+    url: "https://github.com/MetaCubeX/meta-rules-dat/raw/refs/heads/meta/geo/geoip/alibaba.mrs"
+  tencent_ip:
+    <<: *ip
+    url: "https://github.com/MetaCubeX/meta-rules-dat/raw/refs/heads/meta/geo/geoip/tencent.mrs"
+  # 1. 国内游戏/下载 (包含 Steam Download CN, Blizzard CN 等)
+  games_cn:
+    <<: *domain
+    url: "https://github.com/MetaCubeX/meta-rules-dat/raw/refs/heads/meta/geo/geosite/category-games@cn.mrs"
+# 2. 国际游戏平台 (包含 商店、社区、国际服)
+  steam_domain:
+    <<: *domain
+    url: "https://github.com/MetaCubeX/meta-rules-dat/raw/refs/heads/meta/geo/geosite/steam.mrs"
+  epic_domain:
+    <<: *domain
+    url: "https://github.com/MetaCubeX/meta-rules-dat/raw/refs/heads/meta/geo/geosite/epicgames.mrs"
+  blizzard_domain:
+    <<: *domain
+    url: "https://github.com/MetaCubeX/meta-rules-dat/raw/refs/heads/meta/geo/geosite/blizzard.mrs"
+  ea_domain:
+    <<: *domain
+    url: "https://github.com/MetaCubeX/meta-rules-dat/raw/refs/heads/meta/geo/geosite/ea.mrs"
+  nintendo_domain:
+    <<: *domain
+    url: "https://github.com/MetaCubeX/meta-rules-dat/raw/refs/heads/meta/geo/geosite/nintendo.mrs"
