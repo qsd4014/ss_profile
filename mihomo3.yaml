@@ -12,7 +12,7 @@ proxy-providers:
   # 1. 主订阅
   subscription_main:
     <<: *provider-template
-    url: "一号地址"
+    url: "link1"
   #  override:
   #    additional-prefix: "[主]"
     exclude-filter: "(?i)落地"
@@ -20,16 +20,16 @@ proxy-providers:
   # 2. 落地专用订阅
   subscription_landing:
     <<: *provider-template
-    url: "落地地址"
+    url: "link2"
     override:
       additional-prefix: "[链式]"
       dialer-proxy: "↔️ 中转节点"
-    filter: "(?i)落地"
+    # filter: "(?i)落地"
 
   # 3. 免费节点订阅
   subscription_free:
     <<: *provider-template
-    url: "免费地址"
+    url: "link3"
     override:
       additional-prefix: "[Free]"
 
@@ -95,11 +95,12 @@ sniffer:
     - "+.mi.com"
 
 tun:
-  enable: false
+  enable: true
   stack: mixed
   mtu: 9000
   dns-hijack:
     - any:53
+    - tcp://any:53
   auto-route: true
   auto-redirect: true
   auto-detect-interface: true
@@ -123,14 +124,12 @@ dns:
     - "+.msftncsi.com"
     - "+.msftconnecttest.com"
     - "rule-set:private_domain,cn_domain"
-  nameserver-policy:
-    rule-set:private_domain,cn_domain:
-      - https://dns.alidns.com/dns-query
-      - https://doh.pub/dns-query
   nameserver:
-    - quic://223.5.5.5
-    - https://cloudflare-dns.com/dns-query
-    - https://dns.google/dns-query
+    - https://223.5.5.5/dns-query
+    - https://120.53.53.53/dns-query
+  proxy-server-nameserver:
+    - https://223.5.5.5/dns-query
+    - https://120.53.53.53/dns-query
 
 # --- 模板定义 ---
 proxy-templates: &proxy-templates
@@ -145,9 +144,10 @@ proxy-templates: &proxy-templates
     - 🇭🇰 香港
     - 🇭🇰 香港自动
     - 🇯🇵 日本
-    - 🇹🇼 台湾
+    - 🇨🇳 台湾
     - 🇸🇬 新加坡
     - 🏠️ 家宽ISP
+    - 🚀 节点选择
     - ✈️ 手动选择
     - DIRECT
 
@@ -155,8 +155,6 @@ proxy-groups:
   - name: "🚀 节点选择"
     type: select
     proxies:
-      - 🎥 Emby 代理
-      - 🤖 AI
       - 🧩 Snippets
       - 🆓 Free 自动
       - 🆓 Free
@@ -167,7 +165,7 @@ proxy-groups:
       - 🇭🇰 香港
       - 🇭🇰 香港自动
       - 🇯🇵 日本
-      - 🇹🇼 台湾
+      - 🇨🇳 台湾
       - 🇸🇬 新加坡
       - ✈️ 手动选择
       - DIRECT
@@ -200,6 +198,7 @@ proxy-groups:
     type: url-test
     use:
       - subscription_main
+      - subscription_free
     filter: "(?i)(Snippets|cf|wrapper)"
     tolerance: 300
     interval: 300
@@ -221,14 +220,14 @@ proxy-groups:
   - name: "↔️ 中转节点"
     type: select
     proxies:
-      - 🚀 节点选择
+      - 🆓 Free 自动
       - 🇭🇰 香港
       - 🇭🇰 香港自动
       - 🇸🇬 新加坡
       - 🇺🇸 美国
       - 🇺🇸 美国自动
       - 🇯🇵 日本
-      - 🇹🇼 台湾
+      - 🇨🇳 台湾
 
   - name: "🏠️ 家宽ISP"
     type: select
@@ -248,7 +247,7 @@ proxy-groups:
       - 🇭🇰 香港
       - 🇭🇰 香港自动
       - 🇯🇵 日本
-      - 🇹🇼 台湾
+      - 🇨🇳 台湾
       - 🇸🇬 新加坡
       - 🏠️ 家宽ISP
       - ✈️ 手动选择
@@ -260,27 +259,31 @@ proxy-groups:
     type: select
     use:
       - subscription_main
-    filter: "(?=.*?(美国|美|美利坚|US|USA|(?i)States|(?i)America)).*$"
+      - subscription_free
+    filter: "(?=.*?(美国|美|美利坚|US|USA|(?i)States|(?i)America|芝加哥|纽约|亚特兰大|西雅图|达拉斯)).*$"
 
   - name: "🇺🇸 美国自动"
     type: url-test
     use:
       - subscription_main
+      - subscription_free
     tolerance: 200
     interval: 300
-    filter: "(?=.*?(美国|美|美利坚|US|USA|(?i)States|(?i)America)).*$"
+    filter: "(?=.*?(美国|美|美利坚|US|USA|(?i)States|(?i)America|芝加哥|纽约|亚特兰大|西雅图|达拉斯)).*$"
     exclude-filter: "(?i)(1\\.[1-9]x|[2-9](\\.\\d+)?x|\\d{2,}x)"
 
   - name: "🇭🇰 香港"
     type: select
     use:
       - subscription_main
+      - subscription_free
     filter: "(?=.*?(香港|港|HK|Hong Kong|Hongkong|HKSAR)).*$"
 
   - name: "🇭🇰 香港自动"
     type: url-test
     use:
       - subscription_main
+      - subscription_free
     tolerance: 100
     interval: 300
     filter: "(?=.*?(香港|港|HK|Hong Kong|Hongkong|HKSAR)).*$"
@@ -290,9 +293,10 @@ proxy-groups:
     type: select
     use:
       - subscription_main
-    filter: "(?=.*?(日本|日|Japan|Nippon|JP|Japanese)).*$"
+      - subscription_free
+    filter: "(?=.*?(日本|日|Japan|Nippon|JP|Japanese|东京|jp)).*$"
 
-  - name: "🇹🇼 台湾"
+  - name: "🇨🇳 台湾"
     type: select
     use:
       - subscription_main
@@ -302,6 +306,7 @@ proxy-groups:
     type: select
     use:
       - subscription_main
+      - subscription_free
     filter: "(?=.*?(新加坡|新|Singapore|SG|Singapura)).*$"
 
   # --- 应用策略 ---
@@ -341,7 +346,6 @@ proxy-groups:
       - 🇺🇸 美国
       - 🔰 低倍率优选
       - 🧩 Snippets
-      - 🚀 节点选择
       - ♻️ 自动选择
       - ✈️ 手动选择
       - DIRECT
@@ -354,7 +358,6 @@ proxy-groups:
       - 🇺🇸 美国
       - 🔰 低倍率优选
       - 🧩 Snippets
-      - 🚀 节点选择
       - ♻️ 自动选择
       - ✈️ 手动选择
       - DIRECT
@@ -364,7 +367,6 @@ proxy-groups:
     proxies:
       - DIRECT
       - 🔰 低倍率优选
-      - 🚀 节点选择
       - 🧩 Snippets
       - 🇺🇸 美国
       - 🇭🇰 香港
@@ -375,7 +377,7 @@ proxy-groups:
     proxies:
       - DIRECT
       - 🔰 低倍率优选
-      - 🚀 节点选择
+      - ✈️ 手动选择
       - 🇺🇸 美国
       - 🇭🇰 香港
       - 🇯🇵 日本
@@ -387,7 +389,7 @@ proxy-groups:
     proxies:
       - DIRECT
       - 🇭🇰 香港
-      - 🇹🇼 台湾
+      - 🇨🇳 台湾
 
   - name: "🎬 TikTok"
     <<: *proxy-templates
@@ -408,7 +410,6 @@ proxy-groups:
     type: select
     proxies:
       - DIRECT
-      - 🚀 节点选择
       - 🔰 低倍率优选
       - 🆓 Free 自动
       - 🆓 Free
@@ -475,15 +476,15 @@ rules:
   - RULE-SET,github_domain,📦 Github
   - RULE-SET,ai_chat_domain,🤖 AI
   - RULE-SET,telegram_domain,✈️ Telegram
-  - RULE-SET,telegram_ip,✈️ Telegram
+  - RULE-SET,telegram_ip,✈️ Telegram,no-resolve
   - RULE-SET,facebook_domain,🧑‍🤝‍🧑 FaceBook
-  - RULE-SET,facebook_ip,🧑‍🤝‍🧑 FaceBook
+  - RULE-SET,facebook_ip,🧑‍🤝‍🧑 FaceBook,no-resolve
   - RULE-SET,twitter_domain,💬 X
   - RULE-SET,tiktok_domain,🎬 TikTok
   - RULE-SET,bilibili_domain,🎥 bilibili
   - RULE-SET,disney_domain,📹 Disney+
   - RULE-SET,netflix_domain,📺 Netflix
-  - RULE-SET,netflix_ip,📺 Netflix,no-resolve
+  - RULE-SET,netflix_ip,📺 Netflix,no-resolve,no-resolve
   - RULE-SET,appletv_domain,🍎 AppleTV
   - RULE-SET,youtube_domain,▶️ YouTube
   - RULE-SET,google_domain,🌐 Google
@@ -498,7 +499,10 @@ rules:
   - RULE-SET,blizzard_domain,🎮 游戏平台
   - RULE-SET,ea_domain,🎮 游戏平台
   - RULE-SET,nintendo_domain,🎮 游戏平台
-
+  - DOMAIN-SUFFIX,tailscale.com,DIRECT
+  - DOMAIN-SUFFIX,ts.net,DIRECT
+  - IP-CIDR,100.64.0.0/10,DIRECT,no-resolve
+  
   # 6. 宽泛的中国域名/IP规则
   - RULE-SET,cn_domain,DIRECT
   - RULE-SET,cn_ip,DIRECT,no-resolve
