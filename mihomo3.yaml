@@ -135,6 +135,7 @@ dns:
 proxy-templates: &proxy-templates
   type: select
   proxies:
+    - 🚀 节点选择
     - 🔰 低倍率优选
     - 🧩 Snippets
     - 🆓 Free 自动
@@ -147,7 +148,6 @@ proxy-templates: &proxy-templates
     - 🇨🇳 台湾
     - 🇸🇬 新加坡
     - 🏠️ 家宽ISP
-    - 🚀 节点选择
     - ✈️ 手动选择
     - DIRECT
 
@@ -155,18 +155,14 @@ proxy-groups:
   - name: "🚀 节点选择"
     type: select
     proxies:
-      - 🧩 Snippets
-      - 🆓 Free 自动
-      - 🆓 Free
-      - ♻️ 自动选择
-      - 🔰 低倍率优选
-      - 🇺🇸 美国
-      - 🇺🇸 美国自动
       - 🇭🇰 香港
-      - 🇭🇰 香港自动
+      - 🇸🇬 新加坡
+      - 🇺🇸 美国
       - 🇯🇵 日本
       - 🇨🇳 台湾
-      - 🇸🇬 新加坡
+      - 🇭🇰 香港自动
+      - 🇺🇸 美国自动
+      - ♻️ 自动选择
       - ✈️ 手动选择
       - DIRECT
 
@@ -180,6 +176,7 @@ proxy-groups:
     type: url-test
     use:
       - subscription_main
+      - subscription_free
     interval: 300
     tolerance: 100
     exclude-filter: "(?i)(落地|家宽|home|流量|剩余|到期|过期|company-network|1\\.[1-9]x|[2-9](\\.\\d+)?x|\\d{2,}x)"
@@ -193,6 +190,17 @@ proxy-groups:
       - subscription_main
     filter: "(?i)(CF|WARP|0\\.\\d+x|直连|my|Snippets)"
     exclude-filter: "(?i)(home|家宽|(^|[^0-9\\.])([1-9]\\d*(\\.\\d+)?x))"
+
+  - name: "📶 大流量"
+    type: select
+    proxies:
+      - 🔰 低倍率优选
+      - 🧩 Snippets
+      - 🆓 Free 自动
+      - 🆓 Free
+      - 🚀 节点选择
+      - ✈️ 手动选择
+      - DIRECT
 
   - name: "🧩 Snippets"
     type: url-test
@@ -220,7 +228,7 @@ proxy-groups:
   - name: "↔️ 中转节点"
     type: select
     proxies:
-      - 🆓 Free 自动
+      - 🚀 节点选择
       - 🇭🇰 香港
       - 🇭🇰 香港自动
       - 🇸🇬 新加坡
@@ -228,6 +236,7 @@ proxy-groups:
       - 🇺🇸 美国自动
       - 🇯🇵 日本
       - 🇨🇳 台湾
+      - ✈️ 手动选择
 
   - name: "🏠️ 家宽ISP"
     type: select
@@ -266,7 +275,6 @@ proxy-groups:
     type: url-test
     use:
       - subscription_main
-      - subscription_free
     tolerance: 200
     interval: 300
     filter: "(?=.*?(美国|美|美利坚|US|USA|(?i)States|(?i)America|芝加哥|纽约|亚特兰大|西雅图|达拉斯)).*$"
@@ -283,7 +291,6 @@ proxy-groups:
     type: url-test
     use:
       - subscription_main
-      - subscription_free
     tolerance: 100
     interval: 300
     filter: "(?=.*?(香港|港|HK|Hong Kong|Hongkong|HKSAR)).*$"
@@ -300,6 +307,7 @@ proxy-groups:
     type: select
     use:
       - subscription_main
+      - subscription_free
     filter: "(?=.*?(台湾|台|Taiwan|TW|ROC|Republic of China|Chinese Taipei)).*$"
 
   - name: "🇸🇬 新加坡"
@@ -319,7 +327,12 @@ proxy-groups:
       - 🇺🇸 美国自动
 
   - name: "📦 Github"
-    <<: *proxy-templates
+    type: select
+    proxies:
+      - 📶 大流量
+      - 🚀 节点选择
+      - ✈️ 手动选择
+      - DIRECT
 
   - name: "🔍 Bing"
     <<: *proxy-templates
@@ -336,12 +349,19 @@ proxy-groups:
       - DIRECT
 
   - name: "▶️ YouTube"
-    <<: *proxy-templates
+    type: select
+    proxies:
+      - 📶 大流量
+      - 🇸🇬 新加坡
+      - 🚀 节点选择
+      - ✈️ 手动选择
+      - DIRECT
 
   - name: "📺 Netflix"
     type: select
     proxies:
       - 🇸🇬 新加坡
+      - 📶 大流量
       - 🇺🇸 美国自动
       - 🇺🇸 美国
       - 🔰 低倍率优选
@@ -354,6 +374,7 @@ proxy-groups:
     type: select
     proxies:
       - 🇸🇬 新加坡
+      - 📶 大流量
       - 🇺🇸 美国自动
       - 🇺🇸 美国
       - 🔰 低倍率优选
@@ -419,10 +440,7 @@ proxy-groups:
   - name: "🎥 Emby 代理"
     type: select
     proxies:
-      - 🔰 低倍率优选
-      - 🆓 Free 自动
-      - 🆓 Free
-      - 🧩 Snippets
+      - 📶 大流量
       - 🚀 节点选择
       - ✈️ 手动选择
       - DIRECT
@@ -430,8 +448,8 @@ proxy-groups:
   - name: "🎮 游戏平台"
     type: select
     proxies:
-      - 🔰 低倍率优选
       - 🚀 节点选择
+      - 📶 大流量
       - ♻️ 自动选择
       - ✈️ 手动选择
       - 🇺🇸 美国自动
@@ -494,6 +512,7 @@ rules:
   - RULE-SET,apple_domain,🍎 Apple
 
   # 5. 国际游戏平台
+  - RULE-SET,game_download,DIRECT
   - RULE-SET,steam_domain,🎮 游戏平台
   - RULE-SET,epic_domain,🎮 游戏平台
   - RULE-SET,blizzard_domain,🎮 游戏平台
@@ -643,6 +662,9 @@ rule-providers:
   games_cn:
     <<: *domain
     url: "https://github.com/MetaCubeX/meta-rules-dat/raw/refs/heads/meta/geo/geosite/category-games@cn.mrs"
+  game_download:
+    <<: *domain
+    url: "https://github.com/MetaCubeX/meta-rules-dat/raw/refs/heads/meta/geo/geosite/category-game-platforms-download.mrs"
 # 2. 国际游戏平台 (包含 商店、社区、国际服)
   steam_domain:
     <<: *domain
